@@ -1,30 +1,4 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**
-
-- [Инструкция по установке и настройке Unicnet](#%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D1%8F-%D0%BF%D0%BE-%D1%83%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B5-%D0%B8-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B5-unicnet)
-  - [Оглавление](#%D0%9E%D0%B3%D0%BB%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5)
-  - [Порядок установки <a name="docker"></a>](#%D0%9F%D0%BE%D1%80%D1%8F%D0%B4%D0%BE%D0%BA-%D1%83%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B8-a-namedockera)
-  - [Установка docker и docker-compose <a name="docker"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-docker-%D0%B8-docker-compose-a-namedockera)
-  - [Установка rabbitMQ <a name="rabbitmq"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-rabbitmq-a-namerabbitmqa)
-    - [Создание compose файла <a name="rabbitmq_compose"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-compose-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-a-namerabbitmq_composea)
-  - [Установка postgres и postgres-exporter <a name="postgres"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-postgres-%D0%B8-postgres-exporter-a-namepostgresa)
-    - [Создание compose файла <a name="postgres_compose"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-compose-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-a-namepostgres_composea)
-  - [Установка keycloak <a name="keycloak"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-keycloak-a-namekeycloaka)
-    - [Создание compose файла <a name="keycloak_compose"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-compose-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-a-namekeycloak_composea)
-  - [Установка mongodb <a name="mongodb"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-mongodb-a-namemongodba)
-    - [Создание compose файла <a name="mongodb_compose"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-compose-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-a-namemongodb_composea)
-  - [Установка unicnet <a name="unicnet"></a>](#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-unicnet-a-nameunicneta)
-    - [Создание compose файла <a name="unicnet_compose"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-compose-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-a-nameunicnet_composea)
-  - [Объединение контейнеров в общую docker сеть <a name="docker_network"></a>](#%D0%9E%D0%B1%D1%8A%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BA%D0%BE%D0%BD%D1%82%D0%B5%D0%B9%D0%BD%D0%B5%D1%80%D0%BE%D0%B2-%D0%B2-%D0%BE%D0%B1%D1%89%D1%83%D1%8E-docker-%D1%81%D0%B5%D1%82%D1%8C-a-namedocker_networka)
-    - [Создание сети <a name="create_network"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-%D1%81%D0%B5%D1%82%D0%B8-a-namecreate_networka)
-    - [Добавление контейнеров в docker сеть <a name="addtontwork"></a>](#%D0%94%D0%BE%D0%B1%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BA%D0%BE%D0%BD%D1%82%D0%B5%D0%B9%D0%BD%D0%B5%D1%80%D0%BE%D0%B2-%D0%B2-docker-%D1%81%D0%B5%D1%82%D1%8C-a-nameaddtontworka)
-  - [Настройка unicnet <a name="unicnet_settings"></a>](#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0-unicnet-a-nameunicnet_settingsa)
-    - [Настройка файла external.config.json <a name="external"></a>](#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0-%D1%84%D0%B0%D0%B9%D0%BB%D0%B0-externalconfigjson-a-nameexternala)
-    - [Создание пользователя <a name="createuser"></a>](#%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5-%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D0%B5%D0%BB%D1%8F-a-namecreateusera)
-    - [Вход в unicnet <a name="unicnetauth"></a>](#%D0%92%D1%85%D0%BE%D0%B4-%D0%B2-unicnet-a-nameunicnetautha)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+erated TOC please keep comment here to allow auto update -->
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
