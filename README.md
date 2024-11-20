@@ -1,10 +1,7 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
 
+## Инструкция по установке и настройке Unicnet
 
-<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
-
-- [Инструкция по установке и настройке Unicnet](#-unicnet)
-   * [Оглавление ](#)
+### Оглавление 
    * [Порядок установки <a name="docker"></a>](#-)
    * [Установка docker и docker-compose <a name="docker"></a>](#-docker-docker-compose)
    * [Установка rabbitMQ <a name="rabbitmq"></a>](#-rabbitmq)
@@ -26,10 +23,7 @@
 
 <!-- TOC end -->
 
-<!-- TOC --><a name="-unicnet"></a>
-## Инструкция по установке и настройке Unicnet
-<!-- TOC --><a name=""></a>
-### Оглавление 
+
 <!-- TOC --><a name="-"></a>
 ### Порядок установки <a name="docker"></a>
  * установка docker
