@@ -28,7 +28,7 @@
 ### Архитектура установки
 <!-- TOC --><a name="-1-"></a>
 #### Установка на 1-м сервере
-![](./unicnet_assets/unicnet_auth.png "Архитектура установки на 1-м сервере")
+![](./unicnet_assets/unicnet_arch.png "Архитектура установки на 1-м сервере")
 
 <!-- TOC --><a name="installation-procedure"></a>
 ### Порядок установки <a name="docker"></a>
