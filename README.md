@@ -2,7 +2,9 @@
 ## Инструкция по установке и настройке Unicnet
 
 ### Оглавление 
-   * [Порядок установки <a name="docker"></a>](#-)
+   * [Порядок установки <a name="docker"></a>](#installation-procedure)
+   * [Архитектура установки](#-)
+     + [Установка на 1-м сервере](#-1-)
    * [Установка docker и docker-compose <a name="docker"></a>](#-docker-docker-compose)
    * [Установка rabbitMQ <a name="rabbitmq"></a>](#-rabbitmq)
       + [Создание compose файла <a name="rabbitmq_compose"></a>](#-compose-)
@@ -22,9 +24,13 @@
       + [Вход в unicnet <a name="unicnetauth"></a>](#-unicnet-3)
 
 <!-- TOC end -->
-
-
 <!-- TOC --><a name="-"></a>
+### Архитектура установки
+<!-- TOC --><a name="-1-"></a>
+#### Установка на 1-м сервере
+![](./unicnet_assets/unicnet_auth.png "Архитектура установки на 1-м сервере")
+
+<!-- TOC --><a name="installation-procedure"></a>
 ### Порядок установки <a name="docker"></a>
  * установка docker
  * установка rabbitMQ
