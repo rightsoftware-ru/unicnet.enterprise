@@ -1,17 +1,38 @@
----
-gitea: none
-include_toc: true
----
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-<!-- TOC --><a name="-unicnet"></a>
+- [Инструкция по установке и настройке Unicnet в одном контейнере ](#-unicnet-)
+   * [Архитектура установки](#-)
+      + [Установка на 1-м сервере](#-1-)
+   * [Порядок установки <a name="docker"></a>](#--1)
+   * [Установка docker и docker-compose <a name="docker"></a>](#-docker-docker-compose)
+   * [Установка необходимых компонентов одним compose файлом <a name="install_all_components"></a>](#-compose-)
+      + [Создание docker сети для compose файла <a name="create_network"></a>](#-docker-compose-)
+      + [Создание compose файла <a name="create_compose"></a>](#-compose--1)
+      + [Настройка переменных окружения <a name=".env"></a>](#--2)
+      + [Запуск keycloak<a name="keycloak_start"></a>](#-keycloak)
+   * [Настройка Keycloack <a name="KeyCloak_settings"></a>](#-keycloack)
+      + [Создание realm <a name="create_realm"></a>](#-realm)
+      + [Создайте нового клиента для realm <a name="create_client"></a>](#-realm-1)
+      + [Генерация секрета](#--3)
+      + [Создание пользователя <a name="create_user"></a>](#--4)
+   * [Настройка unicnet <a name="unicnet_settings"></a> ](#-unicnet)
+      + [Настройка переменных окружения для unicnet.solid  <a name="external_un.solid"></a>](#-unicnetsolid)
+   * [Вход в unicnet <a name="unicnetauth"></a>](#-unicnet-1)
+
+<!-- TOC end -->
+
+
+
+<!-- TOC --><a name="-unicnet-"></a>
 ## Инструкция по установке и настройке Unicnet в одном контейнере 
-<!-- TOC --><a name=""></a>
 
 
+<!-- TOC --><a name="-"></a>
 ### Архитектура установки
 <!-- TOC --><a name="-1-"></a>
 #### Установка на 1-м сервере
 ![](./unicnet_assets/unicnet_arch.png "Архитектура установки на 1-м сервере")
+<!-- TOC --><a name="--1"></a>
 ### Порядок установки <a name="docker"></a>
  * установка docker
  * установка rabbitMQ
@@ -26,7 +47,7 @@ include_toc: true
 Установка производится за рамками инструкции  
 Рекомендуется установить docker с официального сайта https://docs.docker.com/engine/install/
 
-<!-- TOC --><a name="-rabbitmq"></a>
+<!-- TOC --><a name="-compose-"></a>
 ### Установка необходимых компонентов одним compose файлом <a name="install_all_components"></a>
 
 Скачайте файлы из директории ./app  
@@ -35,12 +56,14 @@ include_toc: true
 * unicnet_all_in_one.yml  
 
 Разместите их в одной директории
+<!-- TOC --><a name="-docker-compose-"></a>
 #### Создание docker сети для compose файла <a name="create_network"></a>
 Создайте сеть командой
 ``` yml
 docker network create unicnet_network
 ```
-#### Создание compose файла <a name="rabbitmq_compose"></a>
+<!-- TOC --><a name="-compose--1"></a>
+#### Создание compose файла <a name="create_compose"></a>
 Отредактируйте unicnet_all_in_one.yml
 
 ``` yml
@@ -238,9 +261,11 @@ networks:
 
 
 ```
+<!-- TOC --><a name="--2"></a>
 #### Настройка переменных окружения <a name=".env"></a>
 Отредактируйте `.env` файл из директории ./app/.env 
 
+<!-- TOC --><a name="-keycloak"></a>
 #### Запуск keycloak<a name="keycloak_start"></a>
  Скачайте образы командой 
 ``` yml
@@ -266,9 +291,11 @@ docker compose -f 'путь до файла.yml' logs
  * mongodb
 корректно поднялись
  
+<!-- TOC --><a name="-keycloack"></a>
 ### Настройка Keycloack <a name="KeyCloak_settings"></a>
 
-#### Создание realm <a name="createrealm"></a>
+<!-- TOC --><a name="-realm"></a>
+#### Создание realm <a name="create_realm"></a>
  Для входа в keycloak воспользуйтесь значением из переменных файла keycloak.yml
  * KEYCLOAK_ADMIN: 
  * KEYCLOAK_ADMIN_PASSWORD: 
@@ -282,7 +309,8 @@ docker compose -f 'путь до файла.yml' logs
 Создайте новый realm 
 ![](./unicnet_assets/realm_setting_general.png "Страница настроекrealm")
 
-#### Создайте нового клиента для realm
+<!-- TOC --><a name="-realm-1"></a>
+#### Создайте нового клиента для realm <a name="create_client"></a>
 Создайте клиента для нового realm 
 ![](./unicnet_assets/create_client_realm.png "Страница настроекrealm")
 Укажите для следующих настроек клиента ваш адрес подключения к unicnet.solid в формате http://внутренний_ip:port(в случае этой инструкции http://внутренний_ip:30111) 
@@ -301,11 +329,13 @@ docker compose -f 'путь до файла.yml' logs
 * irect access grants 
  
  ![](./unicnet_assets/cabability_config.png "Страница cabability_config")
+<!-- TOC --><a name="--3"></a>
 #### Генерация секрета
 Сгенерируйте в разделе `credentials`  `Client secret` 
 
  ![](./unicnet_assets/client_secret_keycloak.png "Страница `Client secret`")
-#### Создание пользователя <a name="createuser"></a>
+<!-- TOC --><a name="--4"></a>
+#### Создание пользователя <a name="create_user"></a>
  Для входа в unicnet создайте пользователя в keycloak.
  
  Для этого воспользуйтесь значением из переменных файла keycloak.yml
@@ -324,9 +354,11 @@ docker compose -f 'путь до файла.yml' logs
  И задайте ему пароль
  
 ![](./unicnet_assets/set_pswd.png "Страница  создания пароля")
+<!-- TOC --><a name="-unicnet"></a>
 ### Настройка unicnet <a name="unicnet_settings"></a> 
-<!-- TOC --><a name="-externalconfigjson"></a>
-#### Настройка переменных окружения для unicnet.solid  <a name="external"></a>
+
+<!-- TOC --><a name="-unicnetsolid"></a>
+#### Настройка переменных окружения для unicnet.solid  <a name="external_un.solid"></a>
 
 Отредактируйте переменные окружения в `./app/unicnet.solid.env` файле.
 * Mongo
@@ -365,9 +397,7 @@ docker compose -f 'путь до файла.yml' down && docker compose -f 'пу
 docker compose -f 'путь до файла.yml' logs
 ```
 
-<!-- TOC --><a name="--1"></a>  
-
-
+<!-- TOC --><a name="-unicnet-1"></a>
 ### Вход в unicnet <a name="unicnetauth"></a>
 Возьмите из файла unicnet.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации unicnet")
