@@ -296,11 +296,11 @@ docker compose -f 'путь до файла.yml' logs
 
 <!-- TOC --><a name="-realm"></a>
 #### Создание realm <a name="create_realm"></a>
- Для входа в keycloak воспользуйтесь значением из переменных файла keycloak.yml
+ Для входа в keycloak воспользуйтесь значением переменных для сервиса keycloak из файла unicnet_all_in_one.yml 
  * KEYCLOAK_ADMIN: 
  * KEYCLOAK_ADMIN_PASSWORD: 
 
- Перейдите по настроенному адресу, используя маппинг порта из файла keycloak.yml (8095) чтобы увидеть страницу авторизации keycloak.
+ Перейдите по настроенному адресу, используя маппинг порта из файла unicnet_all_in_one.yml (8095) чтобы увидеть страницу авторизации keycloak.
 ![](./unicnet_assets/auth_keycloak.png "Страница создания пользователя")
 
 Создайте новый realm 
@@ -342,7 +342,7 @@ docker compose -f 'путь до файла.yml' logs
  * KEYCLOAK_ADMIN: 
  * KEYCLOAK_ADMIN_PASSWORD: 
  
-Перейдите по настроенному адресу, используя маппинг порта из файла keycloak.yml (8095) чтобы увидеть страницу авторизации keycloak.
+Перейдите по настроенному адресу, используя маппинг порта из файла unicnet_all_in_one.yml (8095) чтобы увидеть страницу авторизации keycloak.
 ![](./unicnet_assets/auth_keycloak.png "Страница  создания пользователя")
 
  Создайте пользователя
@@ -399,7 +399,7 @@ docker compose -f 'путь до файла.yml' logs
 
 <!-- TOC --><a name="-unicnet-1"></a>
 ### Вход в unicnet <a name="unicnetauth"></a>
-Возьмите из файла unicnet.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
+Возьмите из файла unicnet_all_in_one.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации unicnet")
  
  
