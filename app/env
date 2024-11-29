@@ -1,0 +1,30 @@
+# Rabbit settings
+RABBITMQ_DEFAULT_USER=unicomm #вставьте ваше значение
+RABBITMQ_DEFAULT_PASS=6D474EE35F  #вставьте ваше значение
+
+# Postgres and postgres_exporter settings
+POSTGRES_DB="unicnet_pdb" #вставьте ваше значение
+POSTGRES_USER="unicnet" #вставьте ваше значение
+POSTGRES_PASSWORD: "01N5w9DP7rcTyJsRV64F" #вставьте ваше значение
+
+# mongodb_container settings
+MONGO_INITDB_ROOT_USERNAME=unicomm #вставьте ваше значение
+MONGO_INITDB_ROOT_PASSWORD=4F1FC0AA8C #вставьте ваше значение
+MONGO_INITDB_DATABASE=unicnet_mdb #вставьте ваше значение
+
+#Keycloak settings
+KEYCLOAK_USER=unicomm #вставьте ваше значение
+KEYCLOAK_PASSWORD=keycloack_pass #вставьте ваше значение
+KEYCLOAK_ADMIN=unicomm #вставьте ваше значение
+KEYCLOAK_ADMIN_PASSWORD=keycloack_pass #вставьте ваше значение
+KEYCLOAK_DATABASE_NAME=unicnet_pdb #KEYCLOAK_DATABASE_NAME=POSTGRES_DB
+KEYCLOAK_DATABASE_USER=unicnet # KEYCLOAK_DATABASE_USER=POSTGRES_USER
+KEYCLOAK_DATABASE_PASSWORD=01N5w9DP7rcTyJsRV64F # KEYCLOAK_DATABASE_PASSWORD=POSTGRES_PASSWORD
+
+
+# uniwebui settings
+Uc.BackHost=http://127.0.0.1:30111/ #Адрес swagger (def: http://{Uc.BackIp}:30111/)
+Uc.BackHostSW=http://127.0.0.1:30111/swagger/index.html #Адрес swagger web (def: {Uc.BackHost}swagger/index.html)
+Uc.BackHostKC=http://127.0.0.1:8095/ #Адрес KeyCloak (def: http://{Uc.BackIp}:8095/)
+Uc.BackHostRMQ=http:/127.0.0.1:15672/#/queue #Адрес rabbitMQ (def: http://{Uc.BackIp}:15672/#/queue
+Uc.BackIp="127.0.0.1" #укажите ваш адрес сервера
