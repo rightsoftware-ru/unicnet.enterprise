@@ -412,6 +412,7 @@ docker compose -f 'путь до файла.yml' logs
 ### Вход в unicnet <a name="unicnetauth"></a>
 Возьмите из файла unicnet_all_in_one.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации unicnet")
+
 <!-- TOC --><a name="faq"></a>
 ### F.A.Q <a name="faq"></a>
 1. Не создалась база данных в postgresql при первом запуске.
