@@ -238,11 +238,11 @@ services:
   uniwebui:
     image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/dev:front241127 # вставьте вашу версию
     environment:
-      Uc.BackHost: $${Uc.BackHost} #Адрес swagger (def: http://{Uc.BackIp}:30111/)
-      Uc.BackHostSW: $${Uc.BackHostSW} #Адрес swagger web (def: {Uc.BackHost}swagger/index.html)
-      Uc.BackHostKC: $${Uc.BackHostKC} #Адрес KeyCloak (def: http://{Uc.BackIp}:8095/)
-      Uc.BackHostRMQ: $${Uc.BackHostRMQ} #Адрес rabbitMQ (def: http://{Uc.BackIp}:15672/#/queue
-      Uc.BackIp: $${Uc.BackIp}
+      Uc.BackHost: http://${Uc.BackHost}:30111/ #Адрес swagger (def: http://{Uc.BackHost}:30111/)
+      Uc.BackHostSW: http://${Uc.BackHostSW}:30111/swagger/index.html #Адрес swagger web (def: {Uc.BackHostSW}swagger/index.html)
+      Uc.BackHostKC: http://${Uc.BackHostKC}:8095/  #Адрес KeyCloak (def: http://{Uc.BackHostKC}:8095/)
+      Uc.BackHostRMQ: http://${Uc.BackHostRMQ}:15672/#/queue #Адрес rabbitMQ (def: http://{Uc.BackHostKC}:15672/#/queue
+      Uc.BackIp: $${Uc.BackIp} #ваш адрес сервера
     env_file:
       - ".env"
     ports:
