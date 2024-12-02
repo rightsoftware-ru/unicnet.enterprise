@@ -5,6 +5,7 @@
       + [Установка на 1-м сервере](#-1-)
    * [Порядок установки <a name="docker"></a>](#--1)
    * [Установка docker и docker-compose <a name="docker"></a>](#-docker-docker-compose)
+   * [Подключение к репозиторию yandex container registry <a name="yc"></a>](#-yandex-container-registry)
    * [Установка необходимых компонентов одним compose файлом <a name="install_all_components"></a>](#-compose-)
       + [Создание docker сети для compose файла <a name="create_network"></a>](#-docker-compose-)
       + [Создание compose файла <a name="create_compose"></a>](#-compose--1)
@@ -18,6 +19,7 @@
    * [Настройка unicnet <a name="unicnet_settings"></a> ](#-unicnet)
       + [Настройка переменных окружения для unicnet.solid  <a name="external_un.solid"></a>](#-unicnetsolid)
    * [Вход в unicnet <a name="unicnetauth"></a>](#-unicnet-1)
+   * [F.A.Q <a name="faq"></a>](#faq)
 
 <!-- TOC end -->
 
@@ -46,6 +48,15 @@
 ### Установка docker и docker-compose <a name="docker"></a>
 Установка производится за рамками инструкции  
 Рекомендуется установить docker с официального сайта https://docs.docker.com/engine/install/
+<!-- TOC --><a name="-yandex-container-registry"></a>
+### Подключение к репозиторию yandex container registry <a name="yc"></a>
+Образы unicnet лежат в yandex container registry компании Unicomm. Для подключения к нему выполните команду в терминале 
+``` bash
+echo y0_AgAAAAB3muX6AATuwQAAAAEawLLRAAB9TQHeGyxGPZXkjVDHF1ZNJcV8UQ | sudo docker login \
+--username oauth \
+--password-stdin \
+cr.yandex
+```
 
 <!-- TOC --><a name="-compose-"></a>
 ### Установка необходимых компонентов одним compose файлом <a name="install_all_components"></a>
@@ -223,7 +234,7 @@ services:
     depends_on:
       - postgres
   unicnet.solid.core:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/dev:back241127 # вставьте вашу версию
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:back241127 # вставьте вашу версию
     container_name: unicnet.solid
     ports:
       - "30111:8080"
@@ -236,7 +247,7 @@ services:
       - keycloak
       - mongodb_container
   uniwebui:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/dev:front241127 # вставьте вашу версию
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front241127 # вставьте вашу версию
     environment:
       Uc.BackHost: http://${Uc.BackHost}:30111/ #Адрес swagger (def: http://{Uc.BackHost}:30111/)
       Uc.BackHostSW: http://${Uc.BackHostSW}:30111/swagger/index.html #Адрес swagger web (def: {Uc.BackHostSW}swagger/index.html)
@@ -401,5 +412,28 @@ docker compose -f 'путь до файла.yml' logs
 ### Вход в unicnet <a name="unicnetauth"></a>
 Возьмите из файла unicnet_all_in_one.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации unicnet")
- 
- 
+<!-- TOC --><a name="faq"></a>
+### F.A.Q <a name="faq"></a>
+1. Не создалась база данных в postgresql при первом запуске.
+Вы можете  самостоятельно создать необходимую базу данных через контейнер.
+Просмотрите запущенные контейнеры. Выполните команду:
+``` yml
+docker ps  
+```
+Скопируйте `NAMES` контейнера postgresql
+Зайдите в контейнер postgres под root. Выполните команду
+``` bash
+docker exec -u root -t -i 'container_name' /bin/bash
+```
+Используя пользователя POSTGRES_USER, подключитесь к базе данных `postgres`. Выполните команду
+``` bash
+psql -U <username>   -d postgres
+```
+Просмотрите список бд. Выполните команду
+``` sql
+\l
+```
+Если вашей бд нет, создайте её. Выполните команду
+``` sql
+CREATE DATABASE dbname;
+```
