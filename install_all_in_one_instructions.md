@@ -76,7 +76,7 @@ docker network create unicnet_network
 <!-- TOC --><a name="-compose--1"></a>
 #### Создание compose файла <a name="create_compose"></a>
 Отредактируйте unicnet_all_in_one.yml
-
++
 ``` yml
 version: "3"
 services:
