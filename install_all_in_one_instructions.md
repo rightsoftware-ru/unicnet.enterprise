@@ -136,7 +136,7 @@ services:
     environment:
        POSTGRES_DB: ${POSTGRES_DB} 
        POSTGRES_USER: ${POSTGRES_USER} 
-       POSTGRES_PASSWOR: ${POSTGRES_PASSWORD} 
+       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} 
        PGDATA: "/var/lib/postgresql/data/pgdata"
     env_file:
       - ".env"
