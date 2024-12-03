@@ -12,8 +12,8 @@ services:
     volumes:
       - ./rabbit/rabbit-unicomm.conf:/etc/rabbitmq/rabbitmq.config
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER} 
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS} 
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     env_file:
       - ".env"
     networks:
