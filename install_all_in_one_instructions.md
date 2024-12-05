@@ -234,7 +234,8 @@ services:
     depends_on:
       - postgres
   unicnet.solid.core:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:back241127 # вставьте вашу версию
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:back241205 # вставьте вашу версию
+
     container_name: unicnet.solid
     ports:
       - "30111:8080"
@@ -247,7 +248,7 @@ services:
       - keycloak
       - mongodb_container
   uniwebui:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front241127 # вставьте вашу версию
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front241205 # вставьте вашу версию
     environment:
       Uc.BackHost: http://$${Uc.BackHost}:30111/ #Адрес swagger (def: http://{Uc.BackHost}:30111/)
       Uc.BackHostSW: http://$${Uc.BackHostSW}:30111/swagger/index.html #Адрес swagger web (def: {Uc.BackHostSW}swagger/index.html)
