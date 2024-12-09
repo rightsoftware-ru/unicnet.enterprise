@@ -548,19 +548,19 @@
       "clientId": "FrontUiV2",
       "name": "FrontUiV2",
       "description": "for web auth unicnet",
-      "rootUrl": "http://<internal_IP>:8080",
-      "adminUrl": "http://<internal_IP>:8080",
+      "rootUrl": "http:/internal_IP:8080",
+      "adminUrl": "http://internal_IP:8080",
       "baseUrl": "",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "http://<internal_IP>:8080/*",
+        "http://internal_IP:8080/*",
         "http://localhost:*/*"
       ],
       "webOrigins": [
-        "http://<internal_IP>:8080",
+        "http://internal_IP:8080",
         "http://localhost:5006",
         "http://localhost:*"
       ],
@@ -577,7 +577,7 @@
       "attributes": {
         "saml.force.post.binding": "false",
         "saml.multivalued.roles": "false",
-        "post.logout.redirect.uris": "http://<internal_IP>:8080/*##http://localhost:*/*",   
+        "post.logout.redirect.uris": "http://internal_IP:8080/*##http://localhost:*/*",   
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
         "saml.server.signature.keyinfo.ext": "false",
@@ -761,19 +761,19 @@
       "clientId": "angular-web-client",
       "name": "unicnet-web",
       "description": "for web auth unicnet",
-      "rootUrl": "http://<internal_IP>:8080",
-      "adminUrl": "http://<internal_IP>:8080",
+      "rootUrl": "http:/internal_IP:8080",
+      "adminUrl": "http://internal_IP:8080",
       "baseUrl": "",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "http://<internal_IP>:8080/*",
+        "http://internal_IP:8080/*",
         "http://localhost:4200/*"
       ],
       "webOrigins": [
-        "http://<internal_IP>:8080",
+        "http://internal_IP:8080",
         "http://localhost:4200"
       ],
       "notBefore": 0,
@@ -792,7 +792,7 @@
         "saml.force.post.binding": "false",
         "saml.multivalued.roles": "false",
         "saml.encrypt": "false",
-        "post.logout.redirect.uris": "http://<internal_IP>:8080/*##http://localhost:4200/*",
+        "post.logout.redirect.uris": "http://internal_IP:8080/*##http://localhost:4200/*",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
         "saml.server.signature": "false",
@@ -871,21 +871,21 @@
       "clientId": "dotnet-client",
       "name": "",
       "description": "Client for our .NET application",
-      "rootUrl": "http://<internal_IP>:5000",
-      "adminUrl": "http://<internal_IP>:5000",
-      "baseUrl": "http://<internal_IP>:5000",
+      "rootUrl": "http://internal_IP:5000",
+      "adminUrl": "http://internal_IP:5000",
+      "baseUrl": "http://internal_IP:5000",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "**********",
       "redirectUris": [
-        "http://<internal_IP>:5000/*",
+        "http://internal_IP:5000/*",
         "http://localhost:5000/*"
       ],
       "webOrigins": [
         "http://localhost:5000",
-        "http://<internal_IP>:5000"
+        "http://internal_IP:5000"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -901,7 +901,7 @@
         "oidc.ciba.grant.enabled": "false",
         "client.secret.creation.time": "1708354510",
         "backchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "http://<internal_IP>:5000/*##http://localhost:5000/*",
+        "post.logout.redirect.uris": "http://internal_IP:5000/*##http://localhost:5000/*",
         "oauth2.device.authorization.grant.enabled": "false",
         "display.on.consent.screen": "false",
         "backchannel.logout.revoke.offline.tokens": "false"
@@ -929,9 +929,9 @@
       "clientId": "dotnet-solid-client",
       "name": "",
       "description": "Client for our .NET Solid.Core application",
-      "rootUrl": "http://<internal_IP>:30111",
-      "adminUrl": "http://<internal_IP>:30111",
-      "baseUrl": "http://<internal_IP>:30111",
+      "rootUrl": "http://internal_IP:30111",
+      "adminUrl": "http://internal_IP:30111",
+      "baseUrl": "http://internal_IP:30111",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
@@ -939,11 +939,11 @@
       "secret": "**********",
       "redirectUris": [
         "http://localhost:3030/*",
-        "http://<internal_IP>:30111/*"
+        "http://internal_IP:30111/*"
       ],
       "webOrigins": [
         "http://localhost:3030",
-        "http://<internal_IP>:30111"
+        "http://internal_IP:30111"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -959,7 +959,7 @@
         "oidc.ciba.grant.enabled": "false",
         "client.secret.creation.time": "1708353610",
         "backchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "http://<internal_IP>:30111/*##http://localhost:3030/*",
+        "post.logout.redirect.uris": "http://internal_IP:30111/*##http://localhost:3030/*",
         "oauth2.device.authorization.grant.enabled": "false",
         "display.on.consent.screen": "false",
         "backchannel.logout.revoke.offline.tokens": "false"
