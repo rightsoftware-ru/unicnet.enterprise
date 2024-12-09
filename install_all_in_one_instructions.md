@@ -75,7 +75,7 @@ cr.yandex
 <!-- TOC --><a name="-docker-compose-"></a>
 #### Создание docker сети для compose файла 
 Создайте сеть командой
-``` yml
+``` bash
 docker network create unicnet_network
 ```
 <!-- TOC --><a name="-volume-unicnetmongo"></a>
@@ -113,12 +113,10 @@ docker network create unicnet_network
  Скачайте образы командой 
 ``` bash
 docker compose -f 'путь до файла.yml' pull
- 
 ```
 Создайте контейнеры командой
 ``` bash
 docker compose -f 'путь до файла.yml' up -d
- 
 ```
 
 
@@ -194,10 +192,8 @@ docker `container_name` logs
 
 Перезапустите сервисы 
 
-``` yml 
-
+``` bash
 docker compose -f 'путь до файла.yml' down && docker compose -f 'путь до файла.yml' up -d
- 
 ```
 Проверьте логи контейнеров
 * unicnet.postgres 
