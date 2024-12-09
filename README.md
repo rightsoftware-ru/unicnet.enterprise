@@ -1,37 +1,43 @@
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-## Инструкция по установке и настройке Unicnet
-
-### Оглавление 
-   * [Порядок установки <a name="docker"></a>](#installation-procedure)
+- [Инструкция по установке и настройке Unicnet в одном контейнере ](#-unicnet-)
    * [Архитектура установки](#-)
-     + [Установка на 1-м сервере](#-1-)
+      + [Установка на 1-м сервере](#-1-)
+   * [Порядок установки ](#--1)
    * [Установка docker и docker-compose <a name="docker"></a>](#-docker-docker-compose)
-   * [Установка rabbitMQ <a name="rabbitmq"></a>](#-rabbitmq)
-      + [Создание compose файла <a name="rabbitmq_compose"></a>](#-compose-)
-   * [Установка postgres и postgres-exporter <a name="postgres"></a>](#-postgres-postgres-exporter)
-      + [Создание compose файла <a name="postgres_compose"></a>](#-compose--1)
-   * [Установка keycloak <a name="keycloak"></a>](#-keycloak)
-      + [Создание compose файла <a name="keycloak_compose"></a>](#-compose--2)
-   * [Установка mongodb <a name="mongodb"></a>](#-mongodb)
-      + [Создание compose файла <a name="mongodb_compose"></a>](#-compose--3)
-   * [Установка unicnet <a name="unicnet"></a>](#-unicnet-1)
-      + [Создание compose файла <a name="unicnet_compose"></a>](#-compose--4)
-   * [Объединение контейнеров в общую docker сеть <a name="docker_network"></a>](#-docker-)
-      + [Добавление контейнеров в docker сеть <a name="addtontwork"></a>](#-docker--1)
-   * [Настройка unicnet <a name="unicnet_settings"></a> ](#-unicnet-2)
-      + [Настройка файла external.config.json <a name="external"></a>](#-externalconfigjson)
-      + [Создание пользователя <a name="createuser"></a>](#--1)
-      + [Вход в unicnet <a name="unicnetauth"></a>](#-unicnet-3)
+   * [Подключение к репозиторию Unicnet <a name="yc"></a>](#-unicnet)
+   * [Установка необходимых компонентов одним compose файлом ](#-compose-)
+      + [Создание docker сети для compose файла ](#-docker-compose-)
+      + [Удаление старого volume для unicnet.mongo](#-volume-unicnetmongo)
+         - [Шаги по удалению Volume:](#-volume)
+      + [Настройка переменных окружения ](#--2)
+      + [Запуск compose файла ](#-compose--1)
+   * [Настройка Keycloak ](#-keycloak)
+      + [Создание realm ](#-realm)
+      + [Генерация секрета](#--3)
+      + [Создание пользователя ](#--4)
+      + [Добавление пользователя в группы ](#--5)
+   * [Настройка unicnet ](#-unicnet-1)
+      + [Перезапуск сервисов ](#--6)
+      + [Вход в unicnet <a name="unicnetauth"></a>](#-unicnet-2)
+      + [Проверка подключения к RabbitMQ, Swagger, KeyCloak](#-rabbitmq-swagger-keycloak)
+      + [Создание подключений для SSH, TELNET, SNMP](#-ssh-telnet-snmp)
+   * [F.A.Q](#faq)
 
 <!-- TOC end -->
+
+<!-- TOC --><a name="-unicnet-"></a>
+## Инструкция по установке и настройке Unicnet в одном контейнере 
+
 <!-- TOC --><a name="-"></a>
 ### Архитектура установки
+
 <!-- TOC --><a name="-1-"></a>
 #### Установка на 1-м сервере
 ![](./unicnet_assets/unicnet_arch.png "Архитектура установки на 1-м сервере")
 
-<!-- TOC --><a name="installation-procedure"></a>
-### Порядок установки <a name="docker"></a>
+<!-- TOC --><a name="--1"></a>
+### Порядок установки 
  * установка docker
  * установка rabbitMQ
  * установка postgres
@@ -42,409 +48,132 @@
 
 <!-- TOC --><a name="-docker-docker-compose"></a>
 ### Установка docker и docker-compose <a name="docker"></a>
-Установка производится за рамками инструкции  
+Установка производится за рамками инструкции.
 Рекомендуется установить docker с официального сайта https://docs.docker.com/engine/install/
 
-<!-- TOC --><a name="-rabbitmq"></a>
-### Установка rabbitMQ <a name="rabbitmq"></a>
+<!-- TOC --><a name="-unicnet"></a>
+### Подключение к репозиторию Unicnet <a name="yc"></a>
+Образы Unicnet лежат в yandex container registry компании Unicomm. Для подключения к нему выполните команду в терминале 
+``` bash
+echo y0_AgAAAAB3muX6AATuwQAAAAEawLLRAAB9TQHeGyxGPZXkjVDHF1ZNJcV8UQ | sudo docker login \
+--username oauth \
+--password-stdin \
+cr.yandex
+```
+
 <!-- TOC --><a name="-compose-"></a>
-#### Создание compose файла <a name="rabbitmq_compose"></a>
-Создайте 'compose' файл. К примеру rabbit.yml и отредактируйте его следующим образом
+### Установка необходимых компонентов одним compose файлом 
+Скачайте файлы с репозитория.
+Перейдите в директорию .\app и найдите файлы:
+* .env
+* unicnet-realm.json
+* unicnet_all_in_one.yml 
 
+Разместите их в одной директории.
+
+<!-- TOC --><a name="-docker-compose-"></a>
+#### Создание docker сети для compose файла 
+Создайте сеть командой
 ``` yml
-services:
-  rabbitmq.unicomm:
-    image: "rabbitmq:3.10.7-management"
-    hostname: "rabbit"
-    restart: always
-    ports:
-      - "15672:15672"
-      - "5672:5672"
-      - "4369:4369"
-      - "25672:25672"
-    labels:
-      NAME: "rabbitmq"
-    volumes:
-      - ./rabbit/rabbit-unicomm.conf:/etc/rabbitmq/rabbitmq.config
-    environment:
-      RABBITMQ_DEFAULT_USER: ruser # вставьте свое значение
-      RABBITMQ_DEFAULT_PASS: rpassword # вставьте  свое значение 
+docker network create unicnet_network
 ```
-Скачайте образ командой 
-``` yml
-docker compose -f 'путь до файла' pull
- 
-```
-Создайте контейнер командой
-``` yml
-docker compose -f 'путь до файла' up -d
- 
-```
-Проверьте логи контейнера
- 
-``` yml
-docker compose -f 'путь до файла' logs
+<!-- TOC --><a name="-volume-unicnetmongo"></a>
+#### Удаление старого volume для unicnet.mongo
+Если вы ранее устанавливали unicnet на данном сервере с другими настройками для контейнера unicnet.mongo, настоятельно рекомендуется удалить старый volume. Пожалуйста, учтите, что это приведет к потере всех данных, хранящихся в unicnet.mongo.
 
-```
-Проверьте работоспособноть rabbitMQ
+<!-- TOC --><a name="-volume"></a>
+##### Шаги по удалению Volume:
 
-![](./unicnet_assets/rabbit_auth.png "rabbit_auth")
+1. Показать список существующих Volume:
+   Для отображения всех доступных volume выполните следующую команду:
+   ``` bash
+   docker volume ls
+   ```
 
-![](./unicnet_assets/rabbit_main.png "rabbit_main")
+2. Удалить старый Volume:
+   После того как вы определитесь с необходимым volume, используйте следующую команду для его удаления:
+   ``` bash
+   docker volume rm имя_вашего_volume
+   ```
 
-<!-- TOC --><a name="-postgres-postgres-exporter"></a>
-### Установка postgres и postgres-exporter <a name="postgres"></a>
+Убедитесь, что вы хотите удалить именно тот volume, который связан с unicnet.mongo, поскольку процесс удаления является необратимым и приведет к утрате всех данных.
+
+<!-- TOC --><a name="--2"></a>
+#### Настройка переменных окружения 
+Отредактируйте скачанный `.env` файл.
+Замените для настроек Uc. значение `127.0.0.1` на ваш внутренний IP:
+* Uc.BackHost=http://127.0.0.1:30111/
+* Uc.BackHostSW=http://127.0.0.1:30111/swagger/index.html
+* Uc.BackHostKC=http://127.0.0.1:8095/
+* Uc.BackHostRMQ=http://127.0.0.1:15672/#/queue
+* Uc.BackIp=127.0.0.1
+
+Также, при необходимости, установите свои значения в:
+* BASE_USER=unicnet
+* BASE_PASS=unicnet
+* DATA_BASE=unicnet_db
+* PDB_PORT=5432
+>  Вы можете оставить эти значения по умолчанию
+
 <!-- TOC --><a name="-compose--1"></a>
-#### Создание compose файла <a name="postgres_compose"></a>
- Создайте 'compose' файл. К примеру postgres.yml и отредактируйте его следующим образом
-
-``` yml 
- version: "3.9"
-services:
-  postgres:
-    container_name: postgres
-    image: postgres:alpine3.15
-    command:
-      - "postgres"
-      - "-c"
-      - "max_connections=50"
-      - "-c"
-      - "shared_buffers=1GB"
-      - "-c"
-      - "effective_cache_size=4GB"
-      - "-c"
-      - "work_mem=16MB"
-      - "-c"
-      - "maintenance_work_mem=512MB"
-      - "-c"
-      - "random_page_cost=1.1"
-      - "-c"
-      - "temp_file_limit=10GB"
-      - "-c"
-      - "log_min_duration_statement=200ms"
-      - "-c"
-      - "idle_in_transaction_session_timeout=10s"
-      - "-c"
-      - "lock_timeout=1s"
-      - "-c"
-      - "statement_timeout=60s"
-      - "-c"
-      - "shared_preload_libraries=pg_stat_statements"
-      - "-c"
-      - "pg_stat_statements.max=10000"
-      - "-c"
-      - "pg_stat_statements.track=all"
-    environment:
-      POSTGRES_DB: "unicnetdb"  # вставьте ваше значение
-      POSTGRES_USER: "unicnet" #  вставьте ваше значение
-      POSTGRES_PASSWORD: "yourpassword" # вставьте ваше значение
-      PGDATA: "/var/lib/postgresql/data/pgdata"
-    volumes:
-      - .:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U unicnet -d unicnetdb"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 4G
-    networks:
-      - unicnetdev_postgres
-
-  postgres_exporter:
-    container_name: exporter_container
-    image: prometheuscommunity/postgres-exporter:v0.10.0
-    environment:
-      DATA_SOURCE_URI: "postgres:5432/unicnetdb?sslmode=disable"
-      DATA_SOURCE_USER: "unicnet" #вставьте ваше значение
-      DATA_SOURCE_PASS: "yourpassword" #вставьте ваше значение
-      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
-    volumes:
-      - ./queries.yaml:/etc/postgres_exporter/queries.yaml:ro
-    ports:
-      - "9187:9187"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.2'
-          memory: 500M
-    networks:
-      - unicnetdev_postgres
-
-networks:
-  unicnetdev_postgres:
-    driver: bridge
-```
-
-Скачайте образ командой 
-``` yml
-docker compose -f 'путь до файла' pull
+#### Запуск compose файла 
+ Скачайте образы командой 
+``` bash
+docker compose -f 'путь до файла.yml' pull
  
 ```
-Создайте контейнер командой
-``` yml
-docker compose -f 'путь до файла' up -d
+Создайте контейнеры командой
+``` bash
+docker compose -f 'путь до файла.yml' up -d
  
 ```
+
+
+Проверьте что контейнеры 
+* unicnet.postgres 
+* unicnet.keycloak 
+* unicnet.postgres.exporter
+* unicnet.rabbitmq
+* unicnet.mongo 
+* unicnet.backend 
+* unicnet.frontend 
+
+корректно поднялись
+
 Проверьте логи контейнера
  
-``` yml
-docker compose -f 'путь до файла' logs
-
+``` bash
+docker `container_name` logs
 ```
+ 
 
 <!-- TOC --><a name="-keycloak"></a>
-### Установка keycloak <a name="keycloak"></a>
-<!-- TOC --><a name="-compose--2"></a>
-#### Создание compose файла <a name="keycloak_compose"></a>
-Создайте 'compose' файл. К примеру keycloak.yml
+### Настройка Keycloak 
+Откройте файл `unicnet-realm.json` на редактирование.
+Измените все значения `internal_IP` на ваш внутренний IP адрес.
+> К примеру, ваш внутренний IP адрес 192.168.0.1. Замените все значения `internal_IP` на 192.168.0.1
 
-``` yml
-services:
-    keycloak:
-        container_name: unicnet_keycloak
-        image: bitnami/keycloak:22.0.5
-        environment:
-          KEYCLOAK_USER: unicomm #вставьте ваше значение
-          KEYCLOAK_PASSWORD: #вставьте ваше значение
-          KEYCLOAK_ADMIN: unicomm_admin #вставьте ваше значение
-          KEYCLOAK_ADMIN_PASSWORD: #вставьте ваше значение
-          KEYCLOAK_DATABASE_HOST: postgres
-          KEYCLOAK_DATABASE_PORT: 5432
-          KEYCLOAK_DATABASE_NAME: unicnetdb #вставьте значение POSTGRES_PASSWORD из файла postges.yml
-          KEYCLOAK_DATABASE_USER: unicnet #вставьте значение POSTGRES_PASSWORD из файла postges.yml
-          KEYCLOAK_DATABASE_PASSWORD: #вставьте значение POSTGRES_PASSWORD из файла postges.yml
-          KEYCLOAK_DATABASE_SCHEMAL: public
-          KEYCLOAK_JDBC_PARAMS: sslmode=disable&connectTimeout=30000
-#Dev Configuration in order to access in HTTP mode
-          KEYCLOAK_HOSTNAME_STRICT: "false"
-#deactivate fixed hostname
-          KEYCLOAK_HOSTNAME_STRICT_HTTPS: "false"
-#For local access to console admin in start mode
-          KEYCLOAK_HTTP_ENABLED: "true"
-        ports:
-            - "8095:8080"
-            - "8096:8443"
-            - "9990:9990"
-        restart: unless-stopped
-        networks:
-         - unicnetdev_postgres
-networks:
-  unicnetdev_postgres:
-    external: true
-```
-Скачайте образ командой 
-``` yml
-docker compose -f 'путь до файла' pull
- 
-```
-Создайте контейнер командой
-``` yml
-docker compose -f 'путь до файла' up -d
- 
-```
-Проверьте логи контейнера
- 
-``` yml
-docker compose -f 'путь до файла' logs
-
-```
-
-<!-- TOC --><a name="-mongodb"></a>
-### Установка mongodb <a name="mongodb"></a>
-<!-- TOC --><a name="-compose--3"></a>
-#### Создание compose файла <a name="mongodb_compose"></a>
-Создайте 'compose' файл. К примеру mongo.yml 
-``` yml
-version: '3.7'
-services:
-  mongodb_container:
-    container_name: un.mongo.solid
-    restart: always
-    image: mongo:4.4
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: unuser # вставьте ваше значение
-      MONGO_INITDB_ROOT_PASSWORD: unpassword # вставьте ваше значение
-    ports:
-      - 27017:27017
-    volumes:
-      - mongodb_data_container:/data/db
-
-volumes:
-  mongodb_data_container:
-```
-
-Скачайте образ командой 
-``` yml
-docker compose -f 'путь до файла' pull
- 
-```
-Создайте контейнер командой
-``` yml
-docker compose -f 'путь до файла' up -d
- 
-```
-Проверьте логи контейнера
- 
-``` yml
-docker compose -f 'путь до файла' logs
-
-```
-
- 
- 
-<!-- TOC --><a name="-unicnet-1"></a>
-### Установка unicnet <a name="unicnet"></a>
-<!-- TOC --><a name="-compose--4"></a>
-#### Создание compose файла <a name="unicnet_compose"></a>
-  Создайте 'compose' файл. К примеру unicnet.yml и отредактируйте его следующим образом
-``` yml
-version: "3.7"
-services:
-
-  unicnet.solid:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid:dev
-    container_name: unicnet.solid
-    ports:
-      - "30111:8080"
-    volumes:
-      - ./app/external.config.json:/app/external.config.json:rw
-
-
-    restart:
-      unless-stopped
-  uniwebui:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid:front
-    environment:
-      Uc.BackHost: http://10.0.26.93:30111/ #Адрес swagger (def: http://{Uc.BackIp}:30111/)
-      Uc.BackHostSW: http://10.0.26.93:30111/swagger/index.html #Адрес swagger web (def: {Uc.BackHost}swagger/index.html)
-      Uc.BackHostKC: http://10.0.26.93:8095/ #Адрес KeyCloak (def: http://{Uc.BackIp}:8095/)
-      Uc.BackHostRMQ: http:/10.0.26.93:15672/#/queue #Адрес rabbitMQ (def: http://{Uc.BackIp}:15672/#/queue
-      Uc.BackIp: "10.0.26.93" #укажите ваш адрес сервера
-
-    ports:
-     - "8080:8080"
-     - "8081:8081"
-
-    restart: unless-stopped
-```
-Скачайте образ командой 
-``` yml
-docker compose -f 'путь до файла' pull
- 
-```
-Создайте контейнер командой
-``` yml
-docker compose -f 'путь до файла' up -d
- 
-```
-Проверьте логи контейнера
- 
-``` yml
-docker compose -f 'путь до файла' logs
-
-```
- 
-
-<!-- TOC --><a name="-docker-"></a>
-### Объединение контейнеров в общую docker сеть <a name="docker_network"></a>
-
-Создайте сеть(либо используйте существующю) и включите туда контейнеры описанных в yml файлах:
-* keycloak
-* postgres
-* unicnet 
- #### Создание сети <a name="create_network"></a>
-``` yml
-docker network create -d bridge unicnetdev_postgres  
-
-``` 
-Просмотр существующих сетей 
-``` yml 
-docker network ls
-```
-Просмотр запущенных контейнеров
-``` yml
-docker ps
-```
-<!-- TOC --><a name="-docker--1"></a>
-#### Добавление контейнеров в docker сеть <a name="addtontwork"></a>
-``` yml
-docker network connect 'имя сети' 'имя контейнера'
-``` 
-<!-- TOC --><a name="-unicnet-2"></a>
-### Настройка unicnet <a name="unicnet_settings"></a> 
-<!-- TOC --><a name="-externalconfigjson"></a>
-#### Настройка файла external.config.json <a name="external"></a>
-Скопируйте файл из запущеного контейнера от образа unicnet.solid.
-Команда 
-``` yml
-docker cp <containerId>:/app/external.config.json ./app/external.config.json
-```
-
-Отредактируйте параметры
-
-* "UniVaultToken": Указать {%VaultRandomToken%} для получение нового токена и сохранения его в файле конфигурации
-* "Mongo": {
-
-      "Type": "DbConStringEntry",
-
-      "ConnectionString": "mongodb://user:password@<IP>:27017/?directConnection=true",  //"{%mongo_url%}",значения хранятся в файле mongo.yml, переменных MONGO_INITDB_ROOT_USERNAME и MONGO_INITDB_ROOT_PASSWORD
-
-      "DataBase": "{%mongo_db%}" // "{%mongo_db%}"
-
-    },
-* "KeyCloakAuthJwt": {
-
-      "Authority": "http://<IP>:8095/realms/unicnet",
-
-      "AuthorizationUrl": "http://<IP>:8095/realms/unicnet/protocol/openid-connect/auth",
-
-      "TokenUrl": "http://<IP>:8095/realms/unicnet/protocol/openid-connect/token",
-
-      "Audience": "account",
-
-      "Realm": "unicnet",
-
-      "ClientId": "dotnet-solid-client",
-
-      "ClientSecret": "*secret*"
-
-    }
-
- 
- 
-Перезапустите сервис unicnet
-
-``` yml
-docker compose -f 'путь до файла' up -d
- 
-```
-Проверьте логи контейнера
- 
-``` yml
-docker compose -f 'путь до файла' logs
-```
-
-<!-- TOC --><a name="--1"></a>
-#### Создание пользователя <a name="createuser"></a>
- Для входа в unicnet создайте пользователя в keycloak.
- 
- Для этого воспользуйтесь значением из переменных файла keycloak.yml
+<!-- TOC --><a name="-realm"></a>
+#### Создание realm 
+ Для входа в keycloak воспользуйтесь значением переменных для сервиса keycloak из файла `.env`
  * KEYCLOAK_ADMIN: 
  * KEYCLOAK_ADMIN_PASSWORD: 
- 
-Перейдите по настроенному адресу, используя маппинг порта из файла keycloak.yml (8095) чтобы увидеть страницу авторизации keycloak.
- 
+
+ Перейдите по настроенному адресу, используя маппинг порта из файла unicnet_all_in_one.yml (8095) чтобы увидеть страницу авторизации keycloak.
 ![](./unicnet_assets/auth_keycloak.png "Страница создания пользователя")
 
+Создайте новый realm из файла unicnet-realm.json
+![](./unicnet_assets/create_realm.png "Страница создания realm")
+
+<!-- TOC --><a name="--3"></a>
+#### Генерация секрета
+Для вашего `UnKc.ClientId` из `.env` файла cгенерируйте в разделе `credentials` `Client secret` и вставьте его в `UnKc.ClientSecret` вашего `.env`.
+
+ ![](./unicnet_assets/client_secret_keycloak.png "Страница `Client secret`")
+
+<!-- TOC --><a name="--4"></a>
+#### Создание пользователя 
+ Для входа в unicnet создайте пользователя в keycloak.
  Создайте пользователя
  
 ![](./unicnet_assets/create_user.png "Страница создания пользователя")
@@ -453,10 +182,98 @@ docker compose -f 'путь до файла' logs
 
  И задайте ему пароль
  
-![](./unicnet_assets/set_pswd.png "Страница  создания пароля")
-<!-- TOC --><a name="-unicnet-3"></a>
+![](./unicnet_assets/set_pswd.png "Страница создания пароля")
+
+<!-- TOC --><a name="--5"></a>
+#### Добавление пользователя в группы 
+
+На вкладке "Пользователи" выберите нужного пользователя. Затем перейдите в раздел "Группы" и добавьте пользователя в необходимые группы.
+Группы:
+* unicnet_admin_group - Пользователь с правами администратора. Имеет доступ к админ. панели unicnet
+* unicnet_superuser_group - Супер пользователь
+* unicnet_user_group - Пользователь
+
+![](./unicnet_assets/groups.png "группы")
+<!-- TOC --><a name="-unicnet-1"></a>
+### Настройка unicnet 
+<!-- TOC --><a name="--6"></a>
+#### Перезапуск сервисов 
+
+Перезапустите сервисы 
+
+``` yml 
+
+docker compose -f 'путь до файла.yml' down && docker compose -f 'путь до файла.yml' up -d
+ 
+```
+Проверьте логи контейнеров
+* unicnet.postgres 
+* unicnet.keycloak 
+* unicnet.postgres.exporter
+* unicnet.rabbitmq
+* unicnet.mongo 
+* unicnet.backend 
+* unicnet.frontend 
+
+ 
+``` bash
+docker `container_name` logs
+```
+
+<!-- TOC --><a name="-unicnet-2"></a>
 #### Вход в unicnet <a name="unicnetauth"></a>
-Возьмите из файла unicnet.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
+Скопируйте из файла unicnet_all_in_one.yml порт закрепленный для 8080, port:8080. По адресу развёртывания webui на этому порту будет доступна страница авторизации UnicNet.
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации unicnet")
- 
- 
+
+![](./unicnet_assets/unicnet_main_page.png "Страница главного меню unicnet")
+
+<!-- TOC --><a name="-rabbitmq-swagger-keycloak"></a>
+#### Проверка подключения к RabbitMQ, Swagger, KeyCloak
+Зайдите в Админ панель в правом верхнем углу.
+Проверьте корректность подключения к RabbitMQ, Swagger, KeyCloak.
+
+![](./unicnet_assets/un_admin_panel.png "Страница авторизации unicnet")
+
+![](./unicnet_assets/un_settings_main.png "Настройки Админ панели. Главная")
+
+<!-- TOC --><a name="-ssh-telnet-snmp"></a>
+#### Создание подключений для SSH, TELNET, SNMP
+Подключения - учётные данные для авторизации на сетевых устройствах, необходимы для расширенного сбора информации о сетевых устройствах и работы автоматизированных задач Runbook. 
+Для создания подключения заполните  
+* Название
+* Логин
+* Пароль
+* Супер(пароль суперпользователя. Заполнять только для типа SSH)
+>  Супер(пароль суперпользователя. Заполнять только для типа SSH)
+
+![](./unicnet_assets/un_settings_cred.png "Настройки Админ панели. Сredention")
+
+
+
+![](./unicnet_assets/un_cred_new.png "Настройки Админ панели. Сredention")
+
+<!-- TOC --><a name="faq"></a>
+### F.A.Q
+1. Не создалась база данных в postgresql при первом запуске.
+Вы можете самостоятельно создать необходимую базу данных через контейнер.
+Просмотрите запущенные контейнеры. Выполните команду:
+``` yml
+docker ps 
+```
+Скопируйте `NAMES` контейнера postgresql
+Зайдите в контейнер postgres под root. Выполните команду
+``` bash
+docker exec -u root -t -i 'container_name' /bin/bash
+```
+Используя пользователя POSTGRES_USER, подключитесь к базе данных `postgres`. Выполните команду
+``` bash
+psql -U <username> -d postgres
+```
+Просмотрите список бд. Выполните команду
+``` sql
+\l
+```
+Если вашей бд нет, создайте её. Выполните команду
+``` sql
+CREATE DATABASE dbname;
+```
