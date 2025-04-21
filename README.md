@@ -1,5 +1,5 @@
 UnicNet  
-Список функциональных возможностей программного продукта компании UniComm
+Список функциональных возможностей программного продукта компании «ПРАВИЛЬНЫЙ СОФТ»
 
 1. Автоматизация поиска и опознания сетевых устройств по протоколам SNMP, SSH, Telnet, Redfish, IPMI. Возможность получения базовых данных от устройств, не имеющих поддержку указанных протоколов на уровне сети.
 2. Автоматизация наполнения базы данных устройств и возможность выгрузки базы в текстовые и табличные форматы
@@ -17,6 +17,6 @@ Mikrotik, Cisco, D-link, Tp-link, Eltex, HP, Huawei, Juniper, Vipnet, Векто
 11. Гибкая ролевая модель системы, интеграция с Keycloak, возможность работы с устройствами по сертификатам авторизации, без предоставления креденталов системе.
 12. Интеграция доступных модулей системы с Zabbix и Ansible, открытое API для внешних интеграций. Документация и консультация по работе с API слоем.
 Инструкция по использованию UnicNet
-https://github.com/unicommorg/unicnet.enterprise/blob/main/User%20guide.md
+https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/User%20guide.md
 Инструкция по развёртыванию демонстрационной версии UnicNet
-https://github.com/unicommorg/unicnet.enterprise/blob/main/install_all_in_one_instructions.md
+https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/install_all_in_one_instructions.md
