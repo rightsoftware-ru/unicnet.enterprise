@@ -54,7 +54,7 @@
 
 <!-- TOC --><a name="-unicnet"></a>
 ### Подключение к репозиторию Unicnet <a name="yc"></a>
-Образы Unicnet лежат в yandex container registry компании Unicomm. Для подключения к нему выполните команду в терминале 
+Образы Unicnet лежат в yandex container registry компании «ПРАВИЛЬНЫЙ СОФТ». Для подключения к нему выполните команду в терминале 
 ``` bash
 echo y0_AgAAAAB3muX6AATuwQAAAAEawLLRAAB9TQHeGyxGPZXkjVDHF1ZNJcV8UQ | sudo docker login \
 --username oauth \
