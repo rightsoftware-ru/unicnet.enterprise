@@ -152,4 +152,5 @@ services:
       - unicnet.backend
 volumes:
   mongodb_data_container:
+  postgres_data:
 
