@@ -30,7 +30,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - .:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -152,3 +152,4 @@ services:
       - unicnet.backend
 volumes:
   mongodb_data_container:
+
