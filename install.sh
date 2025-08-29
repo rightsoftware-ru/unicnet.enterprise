@@ -14,7 +14,7 @@ ENV_FILE="${ENV_FILE:-app/.env}"
 REALM_JSON_SRC="${REALM_JSON_SRC:-app/unicnet-realm.json}"
 REALM_JSON_TMP="${REALM_JSON_TMP:-/tmp/unicnet-realm.resolved.json}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-unicnet_network}"
-CONFIG_FILE="${CONFIG_FILE:-.unicnet_installer.conf}"
+CONFIG_FILE="${CONFIG_FILE:-unicnet_installer.conf}"
 
 # Match project defaults
 BASE_USER_DEFAULT="${BASE_USER_DEFAULT:-unicnet}"
