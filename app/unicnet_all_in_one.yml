@@ -81,29 +81,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-  unicnet.rabbitmq:
-    container_name: unicnet.rabbitmq
-    image: "rabbitmq:3.10.7-management"
-    restart: always
-    env_file:
-      - ".env"
-    networks:
-      unicnet_network:
-    ports:
-      - "5672:5672" # Main AMQP(TCP) port
-      - "15672:15672" # Web UI (HTTP)
-      - "15692:15692" # Prometheus metrics (HTTP)
-      - "4369:4369" # Erlang Port Mapper Daemon (EPMD) - Поиск соседних узлов RabbitMQ
-      - "25672:25672" # RabbitMQ Cluster communication port
-    volumes:
-      - ./rabbit/rabbit-unicomm.conf:/etc/rabbitmq/rabbitmq.config
-    depends_on:
-      - unicnet.postgres
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
   unicnet.keycloak:
     container_name: unicnet.keycloak
@@ -134,8 +111,6 @@ services:
     depends_on:
       unicnet.mongo:
          condition: service_healthy
-      unicnet.rabbitmq:
-         condition: service_healthy
 
   unicnet.frontend:
     container_name: unicnet.frontend
@@ -153,4 +128,5 @@ services:
 volumes:
   mongodb_data_container:
   postgres_data:
+
 
