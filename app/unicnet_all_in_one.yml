@@ -5,7 +5,7 @@ networks:
 services:
   unicnet.postgres:
     container_name: unicnet.postgres
-    image: postgres:alpine3.15
+    image: cr.yandex/crp39psc34hg49unp6p7/postgres:alpine3.15
     restart: unless-stopped
     command: >
       postgres
@@ -45,7 +45,7 @@ services:
 
   unicnet.postgres.exporter:
     container_name: unicnet.postgres.exporter
-    image: prometheuscommunity/postgres-exporter:v0.10.0
+    image: cr.yandex/crp39psc34hg49unp6p7/postgres-exporter:v0.10.0
     restart: unless-stopped
     env_file:
       - ".env"
@@ -66,7 +66,7 @@ services:
 
   unicnet.mongo:
     container_name: unicnet.mongo
-    image: mongo:4.4
+    image: cr.yandex/crp39psc34hg49unp6p7/mongo:4.4
     restart: always
     env_file:
       - ".env"
@@ -84,7 +84,7 @@ services:
 
   unicnet.keycloak:
     container_name: unicnet.keycloak
-    image: bitnami/keycloak:22.0.5
+    image: cr.yandex/crp39psc34hg49unp6p7/keycloak:22.0.5
     restart: unless-stopped
     env_file:
       - ".env"
@@ -128,5 +128,6 @@ services:
 volumes:
   mongodb_data_container:
   postgres_data:
+
 
 
