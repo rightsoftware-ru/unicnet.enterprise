@@ -100,7 +100,7 @@ services:
 
   unicnet.backend:
     container_name: unicnet.backend
-    image: ${REPO_ADR}/${REPO_BACK}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:20251202101202
     restart: unless-stopped
     env_file:
       - ".env"
@@ -114,7 +114,7 @@ services:
 
   unicnet.frontend:
     container_name: unicnet.frontend
-    image: ${REPO_ADR}/${REPO_FRNT}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front250826
     restart: unless-stopped
     env_file:
       - ".env"
@@ -128,6 +128,7 @@ services:
 volumes:
   mongodb_data_container:
   postgres_data:
+
 
 
 
