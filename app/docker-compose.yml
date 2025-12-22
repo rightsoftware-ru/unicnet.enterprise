@@ -113,7 +113,7 @@ services:
       KEYCLOAK_PRODUCTION: "true"
       KC_PROFILE: "production"
     volumes:
-      - keycloak-import:/opt/keycloak/data/import
+      - ./keycloak-import:/opt/keycloak/data/import
     networks:
       unicnet_network:
     ports:
@@ -257,4 +257,3 @@ volumes:
   mongodb_data_container:
   postgres_data:
   vault-data:
-  keycloak-import:
