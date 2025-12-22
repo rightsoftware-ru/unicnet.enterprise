@@ -1,5 +1,15 @@
 # Переменные окружения для экспорта
 # Используйте: source export_variables.txt
+# Или: export $(grep -v '^#' export_variables.txt | xargs)
+
+# PostgreSQL (используется Keycloak)
+export POSTGRES_DB=unicnetdb
+export POSTGRES_USER=unicnet
+export POSTGRES_PASSWORD=postgres123
+
+# MongoDB - root пользователь (для инициализации)
+export MONGO_INITDB_ROOT_USERNAME=unicnet
+export MONGO_INITDB_ROOT_PASSWORD=mongo123
 
 # MongoDB - основная база данных
 export MONGO_INITDB_DATABASE=unicnet_db
@@ -18,4 +28,11 @@ export MONGO_LOGGER_PASSWORD=logger_pass_123
 export MONGO_VAULT_DB=vault_db
 export MONGO_VAULT_USER=vault_user
 export MONGO_VAULT_PASSWORD=vault_pass_123
+
+# Keycloak
+export KEYCLOAK_ADMIN_USER=unicnet
+export KEYCLOAK_ADMIN_PASSWORD=admin123
+
+# Лицензия (используется всеми сервисами)
+export UniCommLicenseData=default_license_data
 
