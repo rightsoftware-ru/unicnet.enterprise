@@ -1,0 +1,107 @@
+<mxfile host="app.diagrams.net" modified="2024-12-22T00:00:00.000Z" agent="5.0" version="21.0.0" etag="drawio-diagram" type="device">
+  <diagram name="Зависимости сервисов" id="dependencies">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Базовые сервисы -->
+        <mxCell id="postgres" value="unicnet.postgres&#xa;PostgreSQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e88e5;strokeColor=#0d47a1;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mongo" value="unicnet.mongo&#xa;MongoDB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#43a047;strokeColor=#1b5e20;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Уровень 1 -->
+        <mxCell id="keycloak" value="unicnet.keycloak&#xa;Keycloak" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fb8c00;strokeColor=#e65100;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="200" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="logger" value="unicnet.logger&#xa;Logger" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#616161;strokeColor=#212121;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="200" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Уровень 2 -->
+        <mxCell id="vault" value="unicnet.vault&#xa;Vault" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7b1fa2;strokeColor=#4a148c;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="320" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Уровень 3 -->
+        <mxCell id="syslog" value="unicnet.syslog&#xa;Syslog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#616161;strokeColor=#212121;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="router" value="unicnet.router&#xa;Router" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#00897b;strokeColor=#004d40;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="440" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Уровень 4 -->
+        <mxCell id="backend" value="unicnet.backend&#xa;Backend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e53935;strokeColor=#b71c1c;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="560" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Уровень 5 -->
+        <mxCell id="frontend" value="unicnet.frontend&#xa;Frontend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d81b60;strokeColor=#880e4f;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="680" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Связи -->
+        <mxCell id="edge1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="postgres" target="keycloak">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="mongo" target="logger">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="mongo" target="vault">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="mongo" target="syslog">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="mongo" target="router">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="logger" target="vault">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="vault" target="syslog">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="vault" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="router" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="syslog" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="logger" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="keycloak" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="1" source="backend" target="frontend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+
