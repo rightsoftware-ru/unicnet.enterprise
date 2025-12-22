@@ -251,23 +251,23 @@ collect_inputs() {
       ask_with_default SERVER_IP "Внутренний IP сервера" "${SERVER_IP:-}"
       is_valid_ipv4 "$SERVER_IP" && break || err "Некорректный IPv4: $SERVER_IP"
     done
-    ask_with_default REALM "Имя Keycloak realm (Enter — взять из JSON файла)" "$REALM"
-    if [ -z "$REALM" ] || [ "$REALM" = "$REALM_DEFAULT" ]; then
-      info "Realm будет автоматически взят из JSON файла при импорте"
-      REALM="$REALM_DEFAULT"
-    fi
+    # Realm будет автоматически взят из JSON файла при импорте
+    REALM="$REALM_DEFAULT"
+    info "Realm будет автоматически взят из JSON файла при импорте"
+    
     # KC_ADMIN и KC_PASS не запрашиваем - они автоматически читаются из контейнера
     info "Keycloak admin credentials будут автоматически прочитаны из контейнера"
 
-    ask_with_default NEW_USER       "Создаваемый пользователь realm" "$NEW_USER"
-    while true; do
-      ask_secret NEW_USER_PASS "Пароль для пользователя ${NEW_USER} (Enter — сгенерировать)" ""
-      if [ -z "$NEW_USER_PASS" ]; then NEW_USER_PASS="$(rand_pass)"; info "Пароль сгенерирован автоматически."; fi
-      [ -n "$NEW_USER_PASS" ] && break
-    done
-    ask_with_default NEW_USER_EMAIL "Email пользователя" "$NEW_USER_EMAIL"
+    # Пользователь, пароль и email устанавливаются автоматически
+    NEW_USER="unicadmin"
+    NEW_USER_PASS="$(rand_pass)"
+    NEW_USER_EMAIL="unicadmin@local"
+    info "Пользователь: ${NEW_USER}"
+    info "Пароль сгенерирован автоматически"
+    info "Email: ${NEW_USER_EMAIL}"
 
-    ask_secret YCR_TOKEN "Yandex CR OAuth-токен (Enter — оставить по умолчанию)" "$YCR_TOKEN"
+    # YCR_TOKEN использует значение по умолчанию
+    info "Yandex CR OAuth-токен использует значение по умолчанию"
     echo
     info "Репозиторий: $REPO_URL"
     info "Каталог:     $REPO_PATH"
@@ -683,12 +683,6 @@ step_create_vault_secret() {
     }
   fi
   
-  # Проверяем наличие SERVER_IP
-  if [ -z "${SERVER_IP:-}" ]; then
-    err "SERVER_IP не установлен. Выполните шаг сбора параметров установки."
-    return 1
-  fi
-  
   # Получаем данные Keycloak из контейнера
   local kc_admin_user kc_admin_pass kc_realm
   kc_admin_user="$(_get_kc_env KEYCLOAK_ADMIN_USER "${KC_ADMIN:-unicnet}")"
@@ -699,21 +693,14 @@ step_create_vault_secret() {
   info "  Admin User: ${kc_admin_user}"
   info "  Admin Pass: ********"
   info "  Realm: ${kc_realm}"
-  info "  Server IP: ${SERVER_IP}"
   
-  # Определяем порты (используем внешние порты из docker-compose)
-  local kc_port="${KC_PORT:-${KC_PORT_DEFAULT:-8095}}"
-  local backend_port="${BACK_PORT_DEFAULT:-30111}"
-  local logger_port="8082"
-  local syslog_port="8001"
+  # Формируем URL с внутренними именами сервисов и портами Docker сети
+  local keycloak_url="http://unicnet.keycloak:8080/"
+  local backend_url="http://unicnet.backend:8080/"
+  local logger_url="http://unicnet.logger:8080/"
+  local syslog_url="http://unicnet.syslog:8080/"
   
-  # Формируем URL с внешними IP адресами
-  local keycloak_url="http://${SERVER_IP}:${kc_port}/"
-  local backend_url="http://${SERVER_IP}:${backend_port}/"
-  local logger_url="http://${SERVER_IP}:${logger_port}/"
-  local syslog_url="http://${SERVER_IP}:${syslog_port}/"
-  
-  info "Используются внешние URL:"
+  info "Используются внутренние URL (Docker сеть):"
   info "  Keycloak: ${keycloak_url}"
   info "  Backend:  ${backend_url}"
   info "  Logger:   ${logger_url}"
