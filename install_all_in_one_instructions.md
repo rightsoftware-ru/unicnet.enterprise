@@ -101,13 +101,12 @@ export UniCommLicenseData="ваша_лицензия_здесь"
 <!-- TOC --><a name="--4"></a>
 ### Порядок установки
 
-- установка docker
-- установка rabbitMQ
-- установка postgres
-- установка postgres-exporter
-- установка keycloak
-- установка mongodb
-- установка unicnet
+- установка docker и docker-compose
+- создание Docker сети
+- установка PostgreSQL (для Keycloak)
+- установка MongoDB
+- установка Keycloak
+- установка сервисов UnicNet (Backend, Frontend, Logger, Vault, Syslog, Router)
 
 <!-- TOC --><a name="-docker-docker-compose"></a>
 ### Установка docker и docker-compose
