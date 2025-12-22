@@ -141,7 +141,6 @@ services:
       - unicnet.vault
       - unicnet.router
       - unicnet.syslog
-      - unicnet.logger
 
   unicnet.frontend:
     container_name: unicnet.frontend
@@ -172,6 +171,10 @@ services:
       - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
     depends_on:
       - unicnet.mongo
+      - unicnet.vault
+      - unicnet.syslog
+      - unicnet.backend
+      - unicnet.frontend
     deploy:
       resources:
         limits:
@@ -199,7 +202,6 @@ services:
       - unicnet_network
     depends_on:
       - unicnet.mongo
-      - unicnet.logger
     deploy:
       resources:
         limits:
