@@ -11,8 +11,7 @@ REPO_URL="${REPO_URL:-https://github.com/rightsoftware-ru/unicnet.enterprise.git
 REPO_DIR="${REPO_DIR:-unicnet.enterprise}"
 COMPOSE_FILE="${COMPOSE_FILE:-app/docker-compose.yml}"
 ENV_FILE="${ENV_FILE:-app/.env}"
-REALM_JSON_SRC="${REALM_JSON_SRC:-app/unicnet-realm.json}"
-REALM_JSON_TMP="${REALM_JSON_TMP:-/tmp/unicnet-realm.resolved.json}"
+REALM_JSON_SRC="${REALM_JSON_SRC:-app/keycloak-import/unicnet-realm.json}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-unicnet_network}"
 CONFIG_FILE="${CONFIG_FILE:-unicnet_installer.conf}"
 
@@ -47,7 +46,6 @@ env_file_abs()     { echo "${REPO_PATH}/${ENV_FILE}"; }
 realm_src_abs()    { echo "${REPO_PATH}/${REALM_JSON_SRC}"; }
 
 # Runtime vars
-SERVER_IP=""
 YCR_TOKEN="${YCR_TOKEN:-$YCR_TOKEN_DEFAULT}"
 REALM="${REALM_DEFAULT}"
 KC_ADMIN="${BASE_USER_DEFAULT}"
@@ -92,9 +90,12 @@ _docker_compose_cmd() {
 
 # Выполняет команду docker compose с автоматическим выбором варианта
 docker_compose() {
-  local cmd
+  local cmd exit_code
   cmd="$(_docker_compose_cmd)" || { err "Не найдена команда docker compose или docker-compose"; return 1; }
-  $cmd "$@"
+  # Подавляем предупреждения о 'deploy' configuration
+  $cmd "$@" 2>&1 | grep -v "be ignored. Compose does not support 'deploy' configuration" || true
+  exit_code=${PIPESTATUS[0]}
+  return $exit_code
 }
 
 is_valid_ipv4() {
@@ -121,7 +122,6 @@ write_config() {
   mv -f "$f" "$f.bak" 2>/dev/null || true
   cat >"$f" <<EOF
 # Автосохранённые ответы установщика UnicNet (создано: $(date -Iseconds))
-SERVER_IP='$( _esc_squote "$SERVER_IP" )'
 REALM='$( _esc_squote "$REALM" )'
 # KC_ADMIN и KC_PASS не сохраняем - они всегда читаются из контейнера
 NEW_USER='$( _esc_squote "$NEW_USER" )'
@@ -190,15 +190,33 @@ wait_kc_ready() {
     "$base/"
   )
   local i=0
+  local dots=""
   while (( i < tries )); do
-    for u in "${urls[@]}"; do http_ok "$u" && return 0; done
-    printf "."; sleep "$sleep_s"; i=$((i+1))
+    for u in "${urls[@]}"; do 
+      if http_ok "$u"; then
+        if [ -n "$dots" ]; then
+          echo -ne "\r${GREEN}✓${NC} Keycloak готов!${dots//./ }"
+          echo
+        fi
+        return 0
+      fi
+    done
+    dots="${dots}."
+    local progress=$((i * 100 / tries))
+    echo -ne "\r${BLUE}[*]${NC} Ожидание готовности Keycloak... ${progress}% ${dots}"
+    sleep "$sleep_s"
+    i=$((i+1))
   done
+  echo -ne "\r"
   echo
+  err "Keycloak не стал доступен за отведенное время"
   echo "Диагностика Keycloak readiness (HTTP коды):"
   for u in "${urls[@]}"; do
     local c; c="$(curl_http_code "$u" || echo 000)"
-    echo "  $u -> $c"
+    case "$c" in
+      2*|3*) echo -e "  ${GREEN}✓${NC} $u -> $c" ;;
+      *)     echo -e "  ${RED}✗${NC} $u -> $c" ;;
+    esac
   done
   return 1
 }
@@ -245,12 +263,8 @@ collect_inputs() {
   echo -e "\n$(sep)\n        Мастер установки UnicNet Enterprise (интерактивный)\n$(sep)"
   
   if load_config_if_exists; then
-    info "SERVER_IP = $SERVER_IP"
+    info "Используются сохранённые параметры из $CONFIG_FILE"
   else
-    while true; do
-      ask_with_default SERVER_IP "Внутренний IP сервера" "${SERVER_IP:-}"
-      is_valid_ipv4 "$SERVER_IP" && break || err "Некорректный IPv4: $SERVER_IP"
-    done
     # Realm будет автоматически взят из JSON файла при импорте
     REALM="$REALM_DEFAULT"
     info "Realm будет автоматически взят из JSON файла при импорте"
@@ -273,6 +287,7 @@ collect_inputs() {
     info "Каталог:     $REPO_PATH"
     info "Compose:      $(compose_file_abs)"
     info "ENV файл:     $(env_file_abs)"
+    info "JSON realm использует внутренние адреса контейнеров (не требуется запрос IP)"
     write_config; log "Параметры сохранены в $CONFIG_FILE (права 600)."
   fi
 }
@@ -813,11 +828,29 @@ step_detect_kc_port() {
     env_port="$(grep -E '^KEYCLOAK_PORT=' "$envf" | tail -1 | cut -d= -f2)"
   fi
 
+  # Определяем IP адрес для доступа к Keycloak
+  # Пробуем получить IP из docker network или используем localhost
+  local server_ip="localhost"
+  if docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1; then
+    local network_ip
+    network_ip="$(docker network inspect "$DOCKER_NETWORK" --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null | head -1 || echo "")"
+    if [ -n "$network_ip" ] && [ "$network_ip" != "<no value>" ]; then
+      server_ip="$network_ip"
+    else
+      # Пробуем получить IP хоста из контейнера
+      local host_ip
+      host_ip="$(docker exec unicnet.keycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
+      if [ -n "$host_ip" ]; then
+        server_ip="$host_ip"
+      fi
+    fi
+  fi
+  
   local -a candidates=()
-  [ -n "$http_port" ]  && candidates+=("http://${SERVER_IP}:${http_port}")
-  [ -n "$https_port" ] && candidates+=("https://${SERVER_IP}:${https_port}")
-  [ -n "$env_port" ]   && candidates+=("http://${SERVER_IP}:${env_port}" "https://${SERVER_IP}:${env_port}")
-  candidates+=("http://${SERVER_IP}:${KC_PORT_DEFAULT}")
+  [ -n "$http_port" ]  && candidates+=("http://${server_ip}:${http_port}")
+  [ -n "$https_port" ] && candidates+=("https://${server_ip}:${https_port}")
+  [ -n "$env_port" ]   && candidates+=("http://${server_ip}:${env_port}" "https://${server_ip}:${env_port}")
+  candidates+=("http://${server_ip}:${KC_PORT_DEFAULT}")
 
   local picked=""
   for u in "${candidates[@]}"; do
@@ -844,9 +877,12 @@ step_detect_kc_port() {
 # =========================
 step_wait_keycloak() {
   [ -n "${KC_URL:-}" ] || step_detect_kc_port
-  log "Жду готовности Keycloak на ${KC_URL}"
-  wait_kc_ready "${KC_URL}" 60 5 || { err "Keycloak не поднялся на ${KC_URL} по ожидаемым эндпоинтам"; return 1; }
-  echo; return 0
+  log "Ожидание готовности Keycloak на ${KC_URL}"
+  wait_kc_ready "${KC_URL}" 60 5 || { 
+    err "Keycloak не поднялся на ${KC_URL} по ожидаемым эндпоинтам"
+    return 1
+  }
+  return 0
 }
 
 # =========================
@@ -863,16 +899,9 @@ step_import_realm() {
     return 1
   fi
   
-  cp -f "$realm_src" "${REALM_JSON_TMP}" || return 1
-  sed -i "s/internal_IP/${SERVER_IP}/g" "${REALM_JSON_TMP}"
-
-  if [ ! -f "${REALM_JSON_TMP}" ]; then
-    err "Не удалось создать временный файл realm JSON: ${REALM_JSON_TMP}"
-    return 1
-  fi
-
+  # JSON файл уже содержит внутренние адреса контейнеров, копируем напрямую
   local JSON_REALM
-  JSON_REALM="$(json_get_field "$(cat "${REALM_JSON_TMP}")" "realm" || true)"
+  JSON_REALM="$(json_get_field "$(cat "$realm_src")" "realm" || true)"
   # Если realm не был задан пользователем (остался по умолчанию), берем из JSON
   if [ -n "$JSON_REALM" ]; then
     if [ "$REALM" = "$REALM_DEFAULT" ] || [ -z "$REALM" ]; then
@@ -887,52 +916,10 @@ step_import_realm() {
     fi
   fi
 
-  log "Импортирую realm через volume Keycloak"
-  info "Исходный файл: ${realm_src}"
+  log "Проверяю импорт realm из директории keycloak-import"
+  info "JSON файл уже находится в директории app/keycloak-import/ (bind mount)"
   
-  local volume_name=""
-  local actual_mount
-  actual_mount="$(docker inspect "${container_name}" --format='{{range .Mounts}}{{if eq .Destination "/opt/keycloak/data/import"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true)"
-  
-  if [ -n "$actual_mount" ]; then
-    volume_name="$actual_mount"
-    info "Использую volume, подключенный к контейнеру: ${volume_name}"
-  else
-    local cf; cf="$(compose_file_abs)"
-    if command -v docker-compose >/dev/null 2>&1 && [ -f "$cf" ]; then
-      local project_name
-      project_name="$(cd "$(dirname "$cf")" && docker-compose -f "$(basename "$cf")" config --project-name 2>/dev/null | tail -1 | xargs || echo "app")"
-      volume_name="${project_name}_keycloak-import"
-    else
-      volume_name="keycloak-import"
-    fi
-    
-    if ! docker volume inspect "${volume_name}" >/dev/null 2>&1; then
-      if docker volume inspect "app_keycloak-import" >/dev/null 2>&1; then
-        volume_name="app_keycloak-import"
-      else
-        log "Создаю volume ${volume_name}"
-        docker volume create "$volume_name" || {
-          err "Не удалось создать volume ${volume_name}"
-          rm -f "${REALM_JSON_TMP}"
-          return 1
-        }
-      fi
-    fi
-  fi
-  
-  log "Копирую realm JSON в volume ${volume_name}:/opt/keycloak/data/import/"
-  docker run --rm -v "${volume_name}:/import" -v "${REALM_JSON_TMP}:/tmp/realm.json:ro" \
-    alpine:latest sh -c "mkdir -p /import && cp /tmp/realm.json /import/${REALM}-realm.json && chmod 644 /import/${REALM}-realm.json" || {
-    err "Не удалось скопировать файл в volume"
-    rm -f "${REALM_JSON_TMP}"
-    return 1
-  }
-  
-  log "Файл успешно скопирован в volume"
-  info "Realm JSON файл находится в: ${volume_name}:/opt/keycloak/data/import/${REALM}-realm.json"
-  
-  sleep 1
+  sleep 2
   
   local realm_file_path=""
   local possible_paths=(
@@ -957,7 +944,6 @@ step_import_realm() {
     ACCESS_TOKEN="$(kc_get_admin_token || true)"
     if [ -z "$ACCESS_TOKEN" ]; then
       err "Не удалось получить admin token для импорта через REST API"
-      rm -f "${REALM_JSON_TMP}"
       return 1
     fi
     
@@ -967,7 +953,7 @@ step_import_realm() {
     HTTP_CODE="$(curl -s "${CURL_OPTS[@]}" -w "%{http_code}" -X POST "${KC_URL}/admin/realms" \
       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "Content-Type: application/json" \
-      --data-binary "@${REALM_JSON_TMP}" \
+      --data-binary "@${realm_src}" \
       -o "$response_body" 2>&1 | tail -1)"
     
     case "$HTTP_CODE" in
@@ -979,11 +965,11 @@ step_import_realm() {
           err "Ответ сервера:"
           head -30 "$response_body" | sed 's/^/  /'
         fi
-        rm -f "${REALM_JSON_TMP}" "$response_body"
+        rm -f "$response_body"
         return 1
         ;;
     esac
-    rm -f "${REALM_JSON_TMP}" "$response_body"
+    rm -f "$response_body"
     return 0
   fi
   
@@ -1017,7 +1003,6 @@ step_import_realm() {
       else
         err "Ошибка импорта realm через kc.sh:"
         echo "$import_output" | head -30 | sed 's/^/  /'
-        rm -f "${REALM_JSON_TMP}"
         return 1
       fi
     else
@@ -1041,7 +1026,7 @@ step_import_realm() {
       HTTP_CODE="$(curl -s "${CURL_OPTS[@]}" -w "%{http_code}" -X POST "${KC_URL}/admin/realms" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
-        --data-binary "@${REALM_JSON_TMP}" \
+        --data-binary "@${realm_src}" \
         -o "$response_body" 2>&1 | tail -1)"
       
       case "$HTTP_CODE" in
@@ -1053,15 +1038,14 @@ step_import_realm() {
             err "Ответ сервера:"
             head -30 "$response_body" | sed 's/^/  /'
           fi
-          rm -f "${REALM_JSON_TMP}" "$response_body"
+          rm -f "$response_body"
           return 1
           ;;
       esac
-      rm -f "${REALM_JSON_TMP}" "$response_body"
+      rm -f "$response_body"
     fi
   fi
   
-  rm -f "${REALM_JSON_TMP}"
   return 0
 }
 
@@ -1479,6 +1463,32 @@ step_compose_up() {
   export MONGO_VAULT_USER="${MONGO_VAULT_USER:-vault_user}"
   export MONGO_VAULT_PASSWORD="${MONGO_VAULT_PASSWORD:-vault_pass_123}"
   
+  # Проверяем наличие realm JSON в директории keycloak-import (bind mount)
+  log "Проверяю наличие realm JSON в директории keycloak-import"
+  local realm_src; realm_src="$(realm_src_abs)"
+  local keycloak_import_dir
+  keycloak_import_dir="$(dirname "$realm_src")"
+  
+  if [ -f "$realm_src" ]; then
+    # Определяем имя realm из JSON для правильного имени файла
+    local JSON_REALM
+    JSON_REALM="$(json_get_field "$(cat "$realm_src")" "realm" || true)"
+    JSON_REALM="${JSON_REALM:-${REALM_DEFAULT}}"
+    
+    # Переименовываем файл, если нужно (Keycloak ищет файлы вида {realm}-realm.json)
+    local expected_name="${keycloak_import_dir}/${JSON_REALM}-realm.json"
+    if [ "$realm_src" != "$expected_name" ]; then
+      log "Переименовываю realm JSON: $(basename "$realm_src") -> $(basename "$expected_name")"
+      cp -f "$realm_src" "$expected_name" || {
+        warn "Не удалось переименовать файл, использую существующий"
+      }
+    fi
+    info "Realm JSON файл готов: ${expected_name}"
+  else
+    warn "JSON realm файл не найден: ${realm_src}"
+    warn "Создайте файл в директории app/keycloak-import/"
+  fi
+  
   log "Запускаю Docker Compose (${cf})"
   info "Используемые переменные MongoDB:"
   info "  MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}"
@@ -1576,15 +1586,33 @@ step_reinstall_full() { step_uninstall_full || true; run_all; }
 step_summary() {
   echo; sep
   echo "ГОТОВО ✅ Проверьте доступы:"
-  echo "  Приложение:      http://${SERVER_IP}:${APP_PORT_DEFAULT}"
+  
+  # Определяем IP адрес для доступа к сервисам
+  local server_ip="localhost"
+  if docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1; then
+    local network_ip
+    network_ip="$(docker network inspect "$DOCKER_NETWORK" --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null | head -1 || echo "")"
+    if [ -n "$network_ip" ] && [ "$network_ip" != "<no value>" ]; then
+      server_ip="$network_ip"
+    else
+      # Пробуем получить IP хоста из контейнера
+      local host_ip
+      host_ip="$(docker exec unicnet.keycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
+      if [ -n "$host_ip" ]; then
+        server_ip="$host_ip"
+      fi
+    fi
+  fi
+  
+  echo "  Приложение:      http://${server_ip}:${APP_PORT_DEFAULT}"
   # Получаем актуальные credentials из контейнера для вывода
   local kc_admin_display
   kc_admin_display="$(_get_kc_env KEYCLOAK_ADMIN_USER "${KC_ADMIN:-${BASE_USER_DEFAULT}}" 2>/dev/null || echo "${KC_ADMIN:-${BASE_USER_DEFAULT}}")"
-  echo "  Keycloak Admin:  ${kc_admin_display} / *** (из контейнера)  (${KC_URL:-http://${SERVER_IP}:${KC_PORT:-$KC_PORT_DEFAULT}})"
+  echo "  Keycloak Admin:  ${kc_admin_display} / *** (из контейнера)  (${KC_URL:-http://${server_ip}:${KC_PORT:-$KC_PORT_DEFAULT}})"
   echo "  Realm:           ${REALM}"
   echo "  User:            ${NEW_USER} / ${NEW_USER_PASS}"
   echo "  Groups:          ${ASSIGNED_GROUPS:-<не присвоены>}"
-  echo "  Vault Swagger:   http://${SERVER_IP}:8200/swagger/index.html"
+  echo "  Vault Swagger:   http://${server_ip}:8200/swagger/index.html"
   sep
 }
 
