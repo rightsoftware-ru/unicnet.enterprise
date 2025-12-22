@@ -1,0 +1,21 @@
+# Переменные окружения для экспорта
+# Используйте: source export_variables.txt
+
+# MongoDB - основная база данных
+export MONGO_INITDB_DATABASE=unicnet_db
+
+# MongoDB - UnicNet
+export MONGO_UNICNET_DB=unicnet_db
+export MONGO_UNICNET_USER=unicnet
+export MONGO_UNICNET_PASSWORD=unicnet_pass_123
+
+# MongoDB - Logger
+export MONGO_LOGGER_DB=logger_db
+export MONGO_LOGGER_USER=logger_user
+export MONGO_LOGGER_PASSWORD=logger_pass_123
+
+# MongoDB - Vault
+export MONGO_VAULT_DB=vault_db
+export MONGO_VAULT_USER=vault_user
+export MONGO_VAULT_PASSWORD=vault_pass_123
+
