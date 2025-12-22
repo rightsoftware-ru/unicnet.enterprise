@@ -142,7 +142,6 @@ services:
       - unicnet.router
       - unicnet.syslog
       - unicnet.logger
-      - unicnet.keycloak
 
   unicnet.frontend:
     container_name: unicnet.frontend
@@ -158,6 +157,7 @@ services:
       - "8081:8081"
     depends_on:
       - unicnet.backend
+      - unicnet.keycloak
 
   unicnet.logger:
     container_name: unicnet.logger
