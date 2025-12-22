@@ -2,7 +2,7 @@
 
 # Скрипт для генерации диаграммы зависимостей из docker-compose.yml
 
-COMPOSE_FILE="app/docker-compose.yml"
+COMPOSE_FILE="../app/docker-compose.yml"
 OUTPUT_DOT="dependencies_diagram.dot"
 OUTPUT_PNG="dependencies_diagram.png"
 OUTPUT_SVG="dependencies_diagram.svg"
