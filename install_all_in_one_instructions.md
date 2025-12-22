@@ -90,17 +90,18 @@ graph TD
     FE[unicnet.frontend<br/>Frontend]
     
     PG --> KC
-    MG --> LG
     MG --> SL
     MG --> VT
-    LG --> VT
     VT --> SL
     VT --> BE
     RT --> BE
     SL --> BE
-    LG --> BE
     BE --> FE
     KC --> FE
+    VT --> LG
+    SL --> LG
+    BE --> LG
+    FE --> LG
     
     style PG fill:#1e88e5,stroke:#0d47a1,stroke-width:3px,color:#ffffff
     style MG fill:#43a047,stroke:#1b5e20,stroke-width:3px,color:#ffffff
@@ -118,23 +119,24 @@ graph TD
 **Уровни зависимостей:**
 
 - **Уровень 0 (Базовые сервисы):** `unicnet.postgres`, `unicnet.mongo`
-- **Уровень 1:** `unicnet.keycloak` → postgres, `unicnet.logger` → mongo
-- **Уровень 2:** `unicnet.vault` → mongo, logger
-- **Уровень 3:** `unicnet.syslog` → mongo, vault; `unicnet.router` → (нет зависимостей)
-- **Уровень 4:** `unicnet.backend` → vault, router, syslog, logger
+- **Уровень 1:** `unicnet.keycloak` → postgres
+- **Уровень 2:** `unicnet.vault` → mongo; `unicnet.router` → (нет зависимостей)
+- **Уровень 3:** `unicnet.syslog` → mongo, vault
+- **Уровень 4:** `unicnet.backend` → vault, router, syslog
 - **Уровень 5:** `unicnet.frontend` → backend, keycloak
+- **Уровень 6:** `unicnet.logger` → mongo, vault, syslog, backend, frontend
 
 **Порядок запуска сервисов:**
 
 1. `unicnet.postgres` (PostgreSQL)
 2. `unicnet.mongo` (MongoDB)
 3. `unicnet.keycloak` (после postgres)
-4. `unicnet.logger` (после mongo)
-5. `unicnet.vault` (после mongo и logger)
-6. `unicnet.syslog` (после mongo и vault)
-7. `unicnet.router` (независимый сервис)
-8. `unicnet.backend` (после vault, router, syslog и logger)
-9. `unicnet.frontend` (после backend и keycloak)
+4. `unicnet.vault` (после mongo)
+5. `unicnet.syslog` (после mongo и vault)
+6. `unicnet.router` (независимый сервис)
+7. `unicnet.backend` (после vault, router и syslog)
+8. `unicnet.frontend` (после backend и keycloak)
+9. `unicnet.logger` (после mongo, vault, syslog, backend и frontend)
 
 > **Примечание**: Docker Compose автоматически учитывает зависимости через `depends_on` и запускает сервисы в правильном порядке.
 

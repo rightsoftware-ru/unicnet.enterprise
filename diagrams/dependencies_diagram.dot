@@ -13,15 +13,17 @@ digraph Dependencies {
     router -> backend;
     syslog [label="unicnet.syslog", fillcolor="#616161", color="#212121"];
     syslog -> backend;
-    logger [label="unicnet.logger", fillcolor="#616161", color="#212121"];
-    logger -> backend;
     frontend [label="unicnet.frontend", fillcolor="#d81b60", color="#880e4f"];
     backend -> frontend;
     keycloak -> frontend;
     mongo [label="unicnet.mongo", fillcolor="#43a047", color="#1b5e20"];
+    logger [label="unicnet.logger", fillcolor="#616161", color="#212121"];
     mongo -> logger;
+    vault -> logger;
+    syslog -> logger;
+    backend -> logger;
+    frontend -> logger;
     mongo -> vault;
-    logger -> vault;
     mongo -> syslog;
     vault -> syslog;
 }
