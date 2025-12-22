@@ -248,8 +248,6 @@ services:
         limits:
           cpus: "1.0"
           memory: 1024M
-    depends_on:
-      - unicnet.mongo
 
 
 volumes:

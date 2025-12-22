@@ -93,7 +93,6 @@ graph TD
     MG --> LG
     MG --> SL
     MG --> VT
-    MG --> RT
     LG --> VT
     VT --> SL
     VT --> BE
@@ -165,7 +164,7 @@ graph TD
 - **Уровень 0 (Базовые сервисы):** `unicnet.postgres`, `unicnet.mongo`
 - **Уровень 1:** `unicnet.keycloak` → postgres, `unicnet.logger` → mongo
 - **Уровень 2:** `unicnet.vault` → mongo, logger
-- **Уровень 3:** `unicnet.syslog` → mongo, vault; `unicnet.router` → mongo
+- **Уровень 3:** `unicnet.syslog` → mongo, vault; `unicnet.router` → (нет зависимостей)
 - **Уровень 4:** `unicnet.backend` → vault, router, syslog, logger, keycloak
 - **Уровень 5:** `unicnet.frontend` → backend
 
@@ -177,7 +176,7 @@ graph TD
 4. `unicnet.logger` (после mongo)
 5. `unicnet.vault` (после mongo и logger)
 6. `unicnet.syslog` (после mongo и vault)
-7. `unicnet.router` (после mongo)
+7. `unicnet.router` (независимый сервис)
 8. `unicnet.backend` (после vault, router, syslog, logger и keycloak)
 9. `unicnet.frontend` (после backend)
 
