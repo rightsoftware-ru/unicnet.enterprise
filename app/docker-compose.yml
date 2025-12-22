@@ -1,0 +1,260 @@
+version: '3.3'
+
+# Общие переменные окружения определены в начале файла
+# Используются через ${VAR_NAME:-default_value} синтаксис
+# Можно переопределить через .env файл 
+#
+# PostgreSQL:
+#   POSTGRES_DB=unicnetdb
+#   POSTGRES_USER=unicnet
+#   POSTGRES_PASSWORD=postgres123
+#
+# MongoDB:
+#   MONGO_INITDB_DATABASE=unicnet_db
+#   MONGO_UNICNET_DB=unicnet_db
+#   MONGO_UNICNET_USER=unicnet
+#   MONGO_UNICNET_PASSWORD=unicnet_pass_123
+#   MONGO_LOGGER_DB=logger_db
+#   MONGO_LOGGER_USER=logger_user
+#   MONGO_LOGGER_PASSWORD=logger_pass_123
+#   MONGO_VAULT_DB=vault_db
+#   MONGO_VAULT_USER=vault_user
+#   MONGO_VAULT_PASSWORD=vault_pass_123
+#
+# Keycloak:
+#   KEYCLOAK_ADMIN_USER=unicnet
+#   KEYCLOAK_ADMIN_PASSWORD=admin123
+#   (использует те же переменные PostgreSQL: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)
+#
+# Глобальные переменные (задаются через export):
+#   UniCommLicenseData=default_license_data
+
+networks:
+  unicnet_network:
+    external: true
+
+services:
+  unicnet.postgres:
+    container_name: unicnet.postgres
+    image: cr.yandex/crp39psc34hg49unp6p7/postgres:alpine3.15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-unicnetdb}
+      - POSTGRES_USER=${POSTGRES_USER:-unicnet}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres123}
+      - PGDATA=/var/lib/postgresql/data
+    networks:
+      unicnet_network:
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unicnet -d unicnetdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 4G
+
+  unicnet.mongo:
+    container_name: unicnet.mongo
+    image: cr.yandex/crp39psc34hg49unp6p7/mongo:4.4
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-unicnet}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-mongo123}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-unicnet_db}
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+    networks:
+      unicnet_network:
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  unicnet.keycloak:
+    container_name: unicnet.keycloak
+    image: cr.yandex/crp39psc34hg49unp6p7/keycloak:22.0.5
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_MODE: "production"
+      KEYCLOAK_DATABASE_TYPE: "postgresql"
+      KEYCLOAK_DATABASE_HOST: "unicnet.postgres"
+      KEYCLOAK_DATABASE_PORT_NUMBER: "5432"
+      KEYCLOAK_DATABASE_NAME: "${POSTGRES_DB:-unicnetdb}"
+      KEYCLOAK_DATABASE_USER: "${POSTGRES_USER:-unicnet}"
+      KEYCLOAK_DATABASE_PASSWORD: "${POSTGRES_PASSWORD:-postgres123}"
+      KEYCLOAK_ADMIN_USER: "${KEYCLOAK_ADMIN_USER:-unicnet}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin123}"
+      KEYCLOAK_JDBC_PARAMS: "sslmode=disable&connectTimeout=60000"
+      KEYCLOAK_HOSTNAME_STRICT: "false"
+      KEYCLOAK_HOSTNAME_STRICT_HTTPS: "false"
+      KEYCLOAK_HTTP_ENABLED: "true"
+      KEYCLOAK_PROXY: "edge"
+      KEYCLOAK_ENABLE_HEALTH: "true"
+      KEYCLOAK_ENABLE_METRICS: "true"
+      KC_DB: "postgres"
+      KC_DB_URL: "jdbc:postgresql://unicnet.postgres:5432/${POSTGRES_DB:-unicnetdb}"
+      KC_DB_USERNAME: "${POSTGRES_USER:-unicnet}"
+      KC_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres123}"
+      KC_DB_URL_PROPERTIES: "sslmode=disable&connectTimeout=60000"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: "edge"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KEYCLOAK_PRODUCTION: "true"
+      KC_PROFILE: "production"
+    volumes:
+      - keycloak-import:/opt/keycloak/data/import
+    networks:
+      unicnet_network:
+    ports:
+      - "8095:8080"
+      - "8096:8443"
+      - "9990:9990"
+    depends_on:
+      - unicnet.postgres
+
+
+  unicnet.backend:
+    container_name: unicnet.backend
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:prod
+    restart: unless-stopped
+    environment:
+      - api.vault.url=http://unicnet.vault:80/
+      - api.logger.url=http://unicnet.logger:8080/
+      - MongoCS=mongodb://${MONGO_UNICNET_USER:-unicnet}:${MONGO_UNICNET_PASSWORD:-unicnet_pass_123}@unicnet.mongo:27017/${MONGO_UNICNET_DB:-unicnet_db}?directConnection=true&authSource=${MONGO_UNICNET_DB:-unicnet_db}&authMechanism=SCRAM-SHA-256
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    networks:
+      unicnet_network:
+    ports:
+      - "30111:8080"
+    depends_on:
+      - unicnet.vault
+      - unicnet.router
+      - unicnet.syslog
+
+  unicnet.frontend:
+    container_name: unicnet.frontend
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front251222
+    restart: unless-stopped
+    environment:
+      - api.vault.url=http://unicnet.vault:80/
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    networks:
+      unicnet_network:
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      - unicnet.backend
+      - unicnet.keycloak
+
+  unicnet.logger:
+    container_name: unicnet.logger
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:prod
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    networks:
+      - unicnet_network
+    environment:
+      - MongoCS=mongodb://${MONGO_LOGGER_USER:-logger_user}:${MONGO_LOGGER_PASSWORD:-logger_pass_123}@unicnet.mongo:27017/${MONGO_LOGGER_DB:-logger_db}?directConnection=true&authSource=${MONGO_LOGGER_DB:-logger_db}&authMechanism=SCRAM-SHA-256
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    depends_on:
+      - unicnet.mongo
+      - unicnet.vault
+      - unicnet.syslog
+      - unicnet.backend
+      - unicnet.frontend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  unicnet.vault:
+    container_name: unicnet.vault
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:prod
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "8200:80"
+    volumes:
+      - vault-data:/vault/file/
+    environment:
+      - MongoCS=mongodb://${MONGO_VAULT_USER:-vault_user}:${MONGO_VAULT_PASSWORD:-vault_pass_123}@unicnet.mongo:27017/${MONGO_VAULT_DB:-vault_db}?directConnection=true&authSource=${MONGO_VAULT_DB:-vault_db}&authMechanism=SCRAM-SHA-256
+      - api.logger.url=http://unicnet.logger:8080/
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    cap_add:
+      - IPC_LOCK
+      - NET_BIND_SERVICE
+    command: server
+    networks:
+      - unicnet_network
+    depends_on:
+      - unicnet.mongo
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  unicnet.syslog:
+    container_name: unicnet.syslog
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:prod
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "8001:8080"
+    networks:
+      - unicnet_network
+    environment:
+      - MongoCS=mongodb://${MONGO_UNICNET_USER:-unicnet}:${MONGO_UNICNET_PASSWORD:-unicnet_pass_123}@unicnet.mongo:27017/${MONGO_UNICNET_DB:-unicnet_db}?directConnection=true&authSource=${MONGO_UNICNET_DB:-unicnet_db}&authMechanism=SCRAM-SHA-256
+      - SysLogUseCache=true
+      - SysLogSendPeriod=false
+      - api.logger.url=http://unicnet.logger:8080/
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      - unicnet.mongo
+      - unicnet.vault
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 4096M
+
+  unicnet.router:
+    container_name: unicnet.router
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:prod
+    restart: unless-stopped
+    ports:
+      - "30115:30115"
+    networks:
+      - unicnet_network
+    environment:
+      - api.vault.url=http://unicnet.vault:80/
+      - api.logger.url=http://unicnet.logger:8080/
+      - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+
+volumes:
+  mongodb_data_container:
+  postgres_data:
+  vault-data:
+  keycloak-import:
