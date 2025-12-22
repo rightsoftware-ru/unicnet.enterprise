@@ -255,13 +255,15 @@ docker inspect unicnet.keycloak | grep -E "KEYCLOAK_ADMIN_USER|KEYCLOAK_ADMIN_PA
 
 ![](./unicnet_assets/set_pswd.png "Страница создания пароля")#### Добавление пользователя в группы
 
+> **Примечание**: Группы уже созданы автоматически при импорте `unicnet-realm.json`. Вам нужно только добавить пользователя в существующие группы.
+
 На вкладке "Пользователи" выберите нужного пользователя. Затем перейдите в раздел "Группы" и добавьте пользователя в необходимые группы:
 
-- unicnet_admin_group - Пользователь с правами администратора. Имеет доступ к админ. панели Unicnet
-- unicnet_superuser_group - Суперпользователь
-- unicnet_user_group - Пользователь
+- `unicnet_admin_group` - Пользователь с правами администратора. Имеет доступ к админ. панели Unicnet
+- `unicnet_superuser_group` - Суперпользователь
+- `unicnet_user_group` - Пользователь
 
-  ![](./unicnet_assets/groups.png "Группы")
+![](./unicnet_assets/groups.png "Группы")
 
 <!-- TOC --><a name="-unicnet-2"></a>
 ### Настройка unicnet
