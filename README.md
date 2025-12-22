@@ -17,6 +17,6 @@ Mikrotik, Cisco, D-link, Tp-link, Eltex, HP, Huawei, Juniper, Vipnet, Векто
 11. Гибкая ролевая модель системы, интеграция с Keycloak, возможность работы с устройствами по сертификатам авторизации, без предоставления креденталов системе.
 12. Интеграция доступных модулей системы с Zabbix и Ansible, открытое API для внешних интеграций. Документация и консультация по работе с API слоем.
 Инструкция по использованию UnicNet
-https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/User%20guide.md
+https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/User.Guide.UnicNet.v1.9.docx
 Инструкция по развёртыванию демонстрационной версии UnicNet
 https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/install_all_in_one_instructions.md
