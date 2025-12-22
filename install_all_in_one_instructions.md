@@ -74,6 +74,10 @@ export UniCommLicenseData="ваша_лицензия_здесь"
 
 Ниже представлена диаграмма зависимостей между сервисами UnicNet Enterprise. Стрелки показывают, какие сервисы зависят от других.
 
+![](./unicnet_assets/dependencies_diagram.png "Диаграмма зависимостей сервисов UnicNet Enterprise")
+
+**Интерактивная диаграмма (Mermaid):**
+
 ```mermaid
 graph TD
     PG[unicnet.postgres<br/>PostgreSQL]
