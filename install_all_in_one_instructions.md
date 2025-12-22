@@ -117,7 +117,7 @@ graph TD
     style FE fill:#d81b60,stroke:#880e4f,stroke-width:3px,color:#ffffff
 ```
 
-> **Примечание**: Диаграмма автоматически генерируется из `docker-compose.yml` с помощью скрипта `generate_diagram.sh`. Для обновления диаграммы выполните: `./generate_diagram.sh`
+> **Примечание**: Диаграмма автоматически генерируется из `docker-compose.yml` с помощью скрипта `diagrams/generate_diagram.sh`. Для обновления диаграммы выполните: `cd diagrams && ./generate_diagram.sh`
 
 **Уровни зависимостей:**
 
