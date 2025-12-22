@@ -206,12 +206,14 @@ docker compose -f docker-compose.yml up -d
 Проверьте, что контейнеры:
 
 - unicnet.postgres
-- unicnet.keycloak
-- unicnet.postgres.exporter
-- unicnet.rabbitmq
 - unicnet.mongo
+- unicnet.keycloak
 - unicnet.backend
 - unicnet.frontend
+- unicnet.logger
+- unicnet.vault
+- unicnet.syslog
+- unicnet.router
 
 корректно поднялись.
 
@@ -281,12 +283,14 @@ docker compose -f docker-compose.yml restart
 Проверьте логи контейнеров:
 
 - unicnet.postgres
-- unicnet.keycloak
-- unicnet.postgres.exporter
-- unicnet.rabbitmq
 - unicnet.mongo
+- unicnet.keycloak
 - unicnet.backend
 - unicnet.frontend
+- unicnet.logger
+- unicnet.vault
+- unicnet.syslog
+- unicnet.router
 
 ```bash
 docker logs container_name
