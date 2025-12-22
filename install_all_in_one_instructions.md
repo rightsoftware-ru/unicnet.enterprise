@@ -174,12 +174,21 @@ graph TD
 <!-- TOC --><a name="--4"></a>
 ### Порядок установки
 
-- установка docker и docker-compose
-- создание Docker сети
-- установка PostgreSQL (для Keycloak)
-- установка MongoDB
-- установка Keycloak
-- установка сервисов UnicNet (Backend, Frontend, Logger, Vault, Syslog, Router)
+Порядок установки соответствует зависимостям сервисов в `docker-compose.yml`:
+
+1. **Установка docker и docker-compose** (базовые инструменты)
+2. **Создание Docker сети** (инфраструктура)
+3. **Установка PostgreSQL** (базовый сервис, не зависит ни от чего)
+4. **Установка MongoDB** (базовый сервис, не зависит ни от чего)
+5. **Установка Keycloak** (зависит от PostgreSQL)
+6. **Установка Vault** (зависит от MongoDB)
+7. **Установка Syslog** (зависит от MongoDB и Vault)
+8. **Установка Router** (независимый сервис)
+9. **Установка Backend** (зависит от Vault, Router и Syslog)
+10. **Установка Frontend** (зависит от Backend и Keycloak)
+11. **Установка Logger** (зависит от MongoDB, Vault, Syslog, Backend и Frontend)
+
+> **Примечание**: Docker Compose автоматически учитывает зависимости через `depends_on` и запускает сервисы в правильном порядке. При ручной установке рекомендуется следовать указанному порядку.
 
 <!-- TOC --><a name="-docker-docker-compose"></a>
 ### Установка docker и docker-compose
