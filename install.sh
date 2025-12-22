@@ -638,6 +638,12 @@ step_get_vault_token() {
       VAULT_TOKEN="$token_extracted"
       log "Токен Vault успешно получен и сохранен для пользователя ${vault_username}"
       info "Длина токена: ${#VAULT_TOKEN} символов"
+      echo
+      info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      info "Полученный токен Vault:"
+      echo "$VAULT_TOKEN"
+      info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo
       return 0
     else
       err "Не удалось извлечь токен из ответа Vault"
@@ -737,6 +743,18 @@ EOF
 )
   
   log "Создаю секрет в Vault с ID: ${vault_secret_id}"
+  
+  # Выводим запрос на экран
+  echo
+  info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  info "Запрос для создания секрета в Vault:"
+  info "URL: http://localhost:80/api/Secrets"
+  info "Method: POST"
+  info "Authorization: Bearer ${VAULT_TOKEN}"
+  info "Payload:"
+  echo "$json_payload" | sed 's/^/  /'
+  info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo
   
   local vault_api_url="http://localhost:80/api/Secrets"
   local response
@@ -1590,8 +1608,7 @@ step_summary() {
   echo "  Realm:           ${REALM}"
   echo "  User:            ${NEW_USER} / ${NEW_USER_PASS}"
   echo "  Groups:          ${ASSIGNED_GROUPS:-<не присвоены>}"
-  echo "  Backend Swagger: http://${SERVER_IP}:${BACK_PORT_DEFAULT}/swagger/index.html"
-  echo "  RabbitMQ:        http://${SERVER_IP}:${RMQ_PORT_DEFAULT}/  (логин/пароль как BASE_USER/BASE_PASS)"
+  echo "  Vault Swagger:   http://${SERVER_IP}:8200/swagger/index.html"
   sep
 }
 
