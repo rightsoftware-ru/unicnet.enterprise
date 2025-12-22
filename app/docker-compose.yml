@@ -140,6 +140,7 @@ services:
     depends_on:
       - unicnet.vault
       - unicnet.router
+      - unicnet.keycloak
 
   unicnet.frontend:
     container_name: unicnet.frontend
@@ -247,6 +248,7 @@ services:
           memory: 1024M
     depends_on:
       - unicnet.vault
+      - unicnet.mongo
 
 
 volumes:
