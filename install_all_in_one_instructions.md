@@ -18,7 +18,6 @@
       + [Запуск compose файла](#-compose--1)
    * [Настройка Keycloak](#-keycloak)
       + [Создание realm](#-realm)
-      + [Генерация секрета](#-realm-1)
       + [Создание пользователя](#-realm-2)
       + [Добавление пользователя в группы](#-realm-3)
    * [Настройка unicnet](#-unicnet-2)
@@ -246,11 +245,7 @@ docker inspect unicnet.keycloak | grep -E "KEYCLOAK_ADMIN_USER|KEYCLOAK_ADMIN_PA
 
 ![](./unicnet_assets/auth_keycloak.png "Страница авторизации Keycloak")Создайте новый realm из файла unicnet-realm.json:
 
-![](./unicnet_assets/create_realm.png "Страница создания realm")#### Генерация секрета
-
-Для вашего `UnKc.ClientId` (обычно указан в `unicnet-realm.json`) сгенерируйте в разделе `credentials` `Client secret` в Keycloak. Этот secret будет использоваться автоматически при импорте realm через API.
-
-![](./unicnet_assets/client_secret_keycloak.png "Страница Client secret")#### Создание пользователя
+![](./unicnet_assets/create_realm.png "Страница создания realm")#### Создание пользователя
 
 Для входа в Unicnet создайте пользователя в Keycloak:
 
