@@ -93,22 +93,24 @@ graph TD
     MG --> LG
     MG --> SL
     MG --> VT
+    MG --> RT
     LG --> VT
     VT --> RT
     VT --> BE
     RT --> BE
+    KC --> BE
     BE --> FE
     VT --> FE
     
-    style PG fill:#e1f5ff
-    style MG fill:#e1f5ff
-    style KC fill:#fff4e1
-    style LG fill:#f0f0f0
-    style SL fill:#f0f0f0
-    style VT fill:#e8f5e9
-    style RT fill:#e8f5e9
-    style BE fill:#fce4ec
-    style FE fill:#fce4ec
+    style PG fill:#1e88e5,stroke:#0d47a1,stroke-width:3px,color:#ffffff
+    style MG fill:#43a047,stroke:#1b5e20,stroke-width:3px,color:#ffffff
+    style KC fill:#fb8c00,stroke:#e65100,stroke-width:3px,color:#ffffff
+    style LG fill:#616161,stroke:#212121,stroke-width:3px,color:#ffffff
+    style SL fill:#616161,stroke:#212121,stroke-width:3px,color:#ffffff
+    style VT fill:#7b1fa2,stroke:#4a148c,stroke-width:3px,color:#ffffff
+    style RT fill:#00897b,stroke:#004d40,stroke-width:3px,color:#ffffff
+    style BE fill:#e53935,stroke:#b71c1c,stroke-width:3px,color:#ffffff
+    style FE fill:#d81b60,stroke:#880e4f,stroke-width:3px,color:#ffffff
 ```
 
 **Текстовая диаграмма зависимостей:**
@@ -121,35 +123,36 @@ graph TD
            ▼
 ┌─────────────────────┐
 │  unicnet.keycloak   │  (IAM - Identity & Access Management)
-└─────────────────────┘
-
+└──────────┬──────────┘
+           │
+           │
 ┌─────────────────────┐
 │   unicnet.mongo     │  (Базовый сервис - NoSQL БД)
 └──────────┬──────────┘
            │
-           ├──────────────────┬──────────────────┐
-           ▼                  ▼                  ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ unicnet.logger   │  │ unicnet.syslog   │  │ unicnet.vault   │
-│   (Logger)       │  │   (Syslog)       │  │   (Vault)       │
-└────────┬────────┘  └──────────────────┘  └────────┬────────┘
-         │                                           │
-         └───────────────┬───────────────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │ unicnet.router      │  (Router)
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │ unicnet.backend     │  (Backend API)
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │ unicnet.frontend    │  (Frontend UI)
-              └─────────────────────┘
+           ├──────────────────┬──────────────────┬──────────────┐
+           ▼                  ▼                  ▼              ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ unicnet.logger   │  │ unicnet.syslog   │  │ unicnet.vault   │  │ unicnet.router  │
+│   (Logger)       │  │   (Syslog)       │  │   (Vault)       │  │   (Router)      │
+└────────┬────────┘  └──────────────────┘  └────────┬────────┘  └────────┬────────┘
+         │                                           │                    │
+         └───────────────┬───────────────────────────┘                    │
+                         │                                                 │
+                         └──────────────────┬──────────────────────────────┘
+                                            │
+                                            ▼
+                                 ┌─────────────────────┐
+                                 │ unicnet.backend     │  (Backend API)
+                                 │   (зависит от:      │
+                                 │    vault, router,   │
+                                 │    keycloak)        │
+                                 └──────────┬──────────┘
+                                            │
+                                            ▼
+                                 ┌─────────────────────┐
+                                 │ unicnet.frontend    │  (Frontend UI)
+                                 └─────────────────────┘
 ```
 
 **Уровни зависимостей:**
@@ -157,8 +160,8 @@ graph TD
 - **Уровень 0 (Базовые сервисы):** `unicnet.postgres`, `unicnet.mongo`
 - **Уровень 1:** `unicnet.keycloak` → postgres, `unicnet.logger` → mongo, `unicnet.syslog` → mongo
 - **Уровень 2:** `unicnet.vault` → mongo, logger
-- **Уровень 3:** `unicnet.router` → vault
-- **Уровень 4:** `unicnet.backend` → vault, router
+- **Уровень 3:** `unicnet.router` → vault, mongo
+- **Уровень 4:** `unicnet.backend` → vault, router, keycloak
 - **Уровень 5:** `unicnet.frontend` → backend, vault
 
 **Порядок запуска сервисов:**
@@ -169,8 +172,8 @@ graph TD
 4. `unicnet.logger` (после mongo)
 5. `unicnet.syslog` (после mongo)
 6. `unicnet.vault` (после mongo и logger)
-7. `unicnet.router` (после vault)
-8. `unicnet.backend` (после vault и router)
+7. `unicnet.router` (после vault и mongo)
+8. `unicnet.backend` (после vault, router и keycloak)
 9. `unicnet.frontend` (после backend и vault)
 
 > **Примечание**: Docker Compose автоматически учитывает зависимости через `depends_on` и запускает сервисы в правильном порядке.
