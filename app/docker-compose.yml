@@ -221,6 +221,7 @@ services:
       - MongoCS=mongodb://${MONGO_UNICNET_USER:-unicnet}:${MONGO_UNICNET_PASSWORD:-unicnet_pass_123}@unicnet.mongo:27017/${MONGO_UNICNET_DB:-unicnet_db}?directConnection=true&authSource=${MONGO_UNICNET_DB:-unicnet_db}&authMechanism=SCRAM-SHA-256
       - SysLogUseCache=true
       - SysLogSendPeriod=false
+      - api.logger.url=http://unicnet.logger:8080/
       - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
     cap_add:
       - NET_BIND_SERVICE
