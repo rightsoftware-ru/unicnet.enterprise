@@ -140,6 +140,8 @@ services:
     depends_on:
       - unicnet.vault
       - unicnet.router
+      - unicnet.syslog
+      - unicnet.logger
       - unicnet.keycloak
 
   unicnet.frontend:
@@ -156,7 +158,6 @@ services:
       - "8081:8081"
     depends_on:
       - unicnet.backend
-      - unicnet.vault
 
   unicnet.logger:
     container_name: unicnet.logger
@@ -223,6 +224,7 @@ services:
       - NET_BIND_SERVICE
     depends_on:
       - unicnet.mongo
+      - unicnet.vault
     deploy:
       resources:
         limits:
@@ -247,7 +249,6 @@ services:
           cpus: "1.0"
           memory: 1024M
     depends_on:
-      - unicnet.vault
       - unicnet.mongo
 
 

@@ -95,12 +95,13 @@ graph TD
     MG --> VT
     MG --> RT
     LG --> VT
-    VT --> RT
+    VT --> SL
     VT --> BE
     RT --> BE
+    SL --> BE
+    LG --> BE
     KC --> BE
     BE --> FE
-    VT --> FE
     
     style PG fill:#1e88e5,stroke:#0d47a1,stroke-width:3px,color:#ffffff
     style MG fill:#43a047,stroke:#1b5e20,stroke-width:3px,color:#ffffff
@@ -162,11 +163,11 @@ graph TD
 **Уровни зависимостей:**
 
 - **Уровень 0 (Базовые сервисы):** `unicnet.postgres`, `unicnet.mongo`
-- **Уровень 1:** `unicnet.keycloak` → postgres, `unicnet.logger` → mongo, `unicnet.syslog` → mongo
+- **Уровень 1:** `unicnet.keycloak` → postgres, `unicnet.logger` → mongo
 - **Уровень 2:** `unicnet.vault` → mongo, logger
-- **Уровень 3:** `unicnet.router` → vault, mongo
-- **Уровень 4:** `unicnet.backend` → vault, router, keycloak
-- **Уровень 5:** `unicnet.frontend` → backend, vault
+- **Уровень 3:** `unicnet.syslog` → mongo, vault; `unicnet.router` → mongo
+- **Уровень 4:** `unicnet.backend` → vault, router, syslog, logger, keycloak
+- **Уровень 5:** `unicnet.frontend` → backend
 
 **Порядок запуска сервисов:**
 
@@ -174,11 +175,11 @@ graph TD
 2. `unicnet.mongo` (MongoDB)
 3. `unicnet.keycloak` (после postgres)
 4. `unicnet.logger` (после mongo)
-5. `unicnet.syslog` (после mongo)
-6. `unicnet.vault` (после mongo и logger)
-7. `unicnet.router` (после vault и mongo)
-8. `unicnet.backend` (после vault, router и keycloak)
-9. `unicnet.frontend` (после backend и vault)
+5. `unicnet.vault` (после mongo и logger)
+6. `unicnet.syslog` (после mongo и vault)
+7. `unicnet.router` (после mongo)
+8. `unicnet.backend` (после vault, router, syslog, logger и keycloak)
+9. `unicnet.frontend` (после backend)
 
 > **Примечание**: Docker Compose автоматически учитывает зависимости через `depends_on` и запускает сервисы в правильном порядке.
 
