@@ -24,7 +24,7 @@
    * [Настройка unicnet](#-unicnet-2)
       + [Перезапуск сервисов](#--6)
       + [Вход в unicnet](#-unicnet-3)
-      + [Проверка подключения к RabbitMQ, Swagger, KeyCloak](#-unicnet-4)
+      + [Проверка подключения к Swagger, KeyCloak](#-unicnet-4)
       + [Создание подключений для SSH, TELNET, SNMP](#-unicnet-5)
 - [F.A.Q](#faq)
 
@@ -373,9 +373,9 @@ docker logs container_name
 
 ![](./unicnet_assets/unicnet_auth.png "Страница авторизации Unicnet")
 
-![](./unicnet_assets/unicnet_main_page.png "Страница главного меню Unicnet")#### Проверка подключения к RabbitMQ, Swagger, KeyCloak
+![](./unicnet_assets/unicnet_main_page.png "Страница главного меню Unicnet")#### Проверка подключения к Swagger, KeyCloak
 
-Зайдите в админ-панель в правом верхнем углу. Проверьте корректность подключения к RabbitMQ, Swagger, KeyCloak:
+Зайдите в админ-панель в правом верхнем углу. Проверьте корректность подключения к Swagger и KeyCloak:
 
 ![](./unicnet_assets/un_admin_panel.png "Страница авторизации Unicnet")
 
