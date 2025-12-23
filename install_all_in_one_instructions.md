@@ -201,6 +201,7 @@ graph TD
 9. **Дождаться готовности Keycloak**
 10. **Импортировать realm**
 11. **Создать пользователя и назначение 3 групп**
+12. **Перезапустить Docker Compose** (down и up -d)
 
 <!-- TOC --><a name="-clone-repo"></a>
 ### 1. Клонирование репозитория
@@ -308,17 +309,34 @@ cr.yandex
 - `docker-compose.yml` - Docker Compose файл со всеми сервисами
 - `keycloak-import/unicnet-realm.json` - конфигурация realm для Keycloak (уже настроена на использование внутренних адресов контейнеров)
 
+> **Примечание**: В зависимости от версии Docker Compose используйте:
+> - `docker compose` (Docker Compose V2, встроен в Docker)
+> - `docker-compose` (Docker Compose V1, отдельная утилита)
+
 Скачайте образы командой:
 
+**Для Docker Compose V2:**
 ```bash
 cd app
 docker compose -f docker-compose.yml pull
 ```
 
+**Для Docker Compose V1:**
+```bash
+cd app
+docker-compose -f docker-compose.yml pull
+```
+
 Создайте контейнеры командой:
 
+**Для Docker Compose V2:**
 ```bash
 docker compose -f docker-compose.yml up -d
+```
+
+**Для Docker Compose V1:**
+```bash
+docker-compose -f docker-compose.yml up -d
 ```
 
 <!-- TOC --><a name="--5"></a>
@@ -508,6 +526,47 @@ curl http://localhost:8095/health/ready
 ![](./unicnet_assets/groups.png "Группы")
 
 > **Примечание**: Группы уже созданы автоматически при импорте `unicnet-realm.json`. Вам нужно только добавить пользователя в существующие группы.
+
+<!-- TOC --><a name="-restart-compose"></a>
+### 12. Перезапуск Docker Compose
+
+После выполнения всех настроек перезапустите все сервисы одной командой:
+
+> **Примечание**: В зависимости от версии Docker Compose используйте:
+> - `docker compose` (Docker Compose V2, встроен в Docker)
+> - `docker-compose` (Docker Compose V1, отдельная утилита)
+
+Определите, какая версия у вас установлена:
+
+```bash
+docker compose version
+```
+
+Если команда не работает, попробуйте:
+
+```bash
+docker-compose version
+```
+
+После определения версии выполните перезапуск:
+
+**Для Docker Compose V2 (docker compose):**
+```bash
+cd app
+docker compose -f docker-compose.yml down && docker compose -f docker-compose.yml up -d
+```
+
+**Для Docker Compose V1 (docker-compose):**
+```bash
+cd app
+docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.yml up -d
+```
+
+Эта команда:
+- Останавливает и удаляет все контейнеры (`down`)
+- Запускает все контейнеры заново в фоновом режиме (`up -d`)
+
+Перезапуск необходим для применения всех изменений (пользователи MongoDB, секреты Vault, realm Keycloak).
 
 <!-- TOC --><a name="-unicnet-2"></a>
 ### Проверка работы системы
