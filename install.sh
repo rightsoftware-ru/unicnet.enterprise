@@ -714,12 +714,15 @@ step_create_vault_secret() {
   local backend_url="http://unicnet.backend:8080/"
   local logger_url="http://unicnet.logger:8080/"
   local syslog_url="http://unicnet.syslog:8080/"
+  local router_url="http://unicnet.router:30115/"
+  local router_hostport="unicnet.router:30115"
   
   info "Используются внутренние URL (Docker сеть):"
   info "  Keycloak: ${keycloak_url}"
   info "  Backend:  ${backend_url}"
   info "  Logger:   ${logger_url}"
   info "  Syslog:   ${syslog_url}"
+  info "  Router:   ${router_url}"
   
   local json_payload
   json_payload=$(cat <<EOF
@@ -736,7 +739,8 @@ step_create_vault_secret() {
     "api.syslog.url": "${syslog_url}",
     "KeyCloak.AdmUn": "${kc_admin_user}",
     "KeyCloak.AdmPw": "${kc_admin_pass}",
-    "KeyCloak.Realm": "${kc_realm}"
+    "KeyCloak.Realm": "${kc_realm}",
+    "RouterHotSpot": "${router_hostport}"
   },
   "tags": [],
   "expiresAt": "2050-12-31T23:59:59.999Z"
