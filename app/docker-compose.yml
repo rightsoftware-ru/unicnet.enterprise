@@ -133,6 +133,7 @@ services:
       - api.logger.url=http://unicnet.logger:8080/
       - MongoCS=mongodb://${MONGO_UNICNET_USER:-unicnet}:${MONGO_UNICNET_PASSWORD:-unicnet_pass_123}@unicnet.mongo:27017/${MONGO_UNICNET_DB:-unicnet_db}?directConnection=true&authSource=${MONGO_UNICNET_DB:-unicnet_db}&authMechanism=SCRAM-SHA-256
       - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+     
     networks:
       unicnet_network:
     ports:
@@ -149,6 +150,7 @@ services:
     environment:
       - api.vault.url=http://unicnet.vault:80/
       - UniCommLicenseData=${UniCommLicenseData:-default_license_data}
+     
     networks:
       unicnet_network:
     ports:
