@@ -158,7 +158,13 @@ graph TD
 <!-- TOC --><a name="--2"></a>
 ### Шаги по использованию скрипта:
 
-1. **Скачайте скрипт**: Сохраните файл `install.sh` в удобную директорию (например, в корневую папку установки).
+1. **Клонируйте репозиторий**: Выполните клонирование репозитория `unicnet.enterprise`:
+
+   ```bash
+   git clone https://github.com/rightsoftware-ru/unicnet.enterprise.git
+   cd unicnet.enterprise
+   ```
+
 2. **Сделайте скрипт исполняемым**:
 
    ```bash
