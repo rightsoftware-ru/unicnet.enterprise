@@ -1409,7 +1409,33 @@ EOF
 }
 
 # =========================
-# Дополнительные шаги (1-4, 12-14)
+# Step 12: Перезапуск Docker Compose
+# =========================
+step_restart_compose() {
+  local cf; cf="$(compose_file_abs)"
+  
+  if [ ! -f "${cf}" ]; then
+    err "Файл docker-compose.yml не найден: ${cf}"
+    return 1
+  fi
+  
+  log "Перезапускаю все сервисы Docker Compose..."
+  info "Выполняю: docker compose down && docker compose up -d"
+  
+  # Используем функцию docker_compose, которая автоматически определяет версию
+  if docker_compose -f "$cf" down && docker_compose -f "$cf" up -d; then
+    log "Все сервисы успешно перезапущены"
+    echo
+    docker_compose -f "$cf" ps || true
+    return 0
+  else
+    err "Ошибка при перезапуске сервисов"
+    return 1
+  fi
+}
+
+# =========================
+# Дополнительные шаги (1-4, 13-15)
 # =========================
 step_deps() {
   need_cmd curl || return 1
@@ -1510,73 +1536,42 @@ step_compose_up() {
 }
 
 step_uninstall_full() {
-  local cf imgs="" volumes=""
+  local cf
   cf="$(compose_file_abs 2>/dev/null || true)"
-  
-  # Получаем список образов и volumes перед удалением
-  if [ -f "${cf}" ]; then
-    imgs="$(docker_compose -f "$cf" images -q 2>/dev/null | sort -u | tr '\n' ' ' || true)"
-    volumes="$(docker_compose -f "$cf" config --volumes 2>/dev/null | tr '\n' ' ' || true)"
-  fi
   
   log "=== Полная деинсталляция UnicNet Enterprise ==="
   echo
   
-  # 1. Останавливаем и удаляем контейнеры через docker-compose
-  log "1. Останавливаю и удаляю контейнеры..."
   if [ -f "${cf}" ]; then
-    docker_compose -f "$cf" down --remove-orphans 2>/dev/null || true
-    log "   Контейнеры остановлены и удалены"
+    # Используем docker-compose down для удаления контейнеров, volumes и образов
+    log "Останавливаю и удаляю контейнеры, volumes и образы через docker-compose..."
+    
+    # Пробуем удалить все сразу (контейнеры, volumes, образы)
+    if docker_compose -f "$cf" down --remove-orphans -v --rmi all 2>/dev/null; then
+      log "Контейнеры, volumes и образы удалены"
+    else
+      # Если --rmi all не поддерживается, удаляем контейнеры и volumes
+      docker_compose -f "$cf" down --remove-orphans -v 2>/dev/null || true
+      log "Контейнеры и volumes удалены"
+      
+      # Удаляем образы отдельно
+      log "Удаляю образы..."
+      docker_compose -f "$cf" down --rmi all 2>/dev/null || true
+    fi
   else
-    warn "   Файл docker-compose.yml не найден, удаляю контейнеры вручную..."
+    warn "Файл docker-compose.yml не найден, удаляю контейнеры вручную..."
     for container in $(docker ps -a --format '{{.Names}}' | grep '^unicnet\.' 2>/dev/null || true); do
       docker rm -f "$container" 2>/dev/null || true
-      log "   Удален контейнер: $container"
+      log "Удален контейнер: $container"
     done
   fi
   
-  # 2. Удаляем volumes
-  log "2. Удаляю volumes..."
-  if [ -f "${cf}" ]; then
-    docker_compose -f "$cf" down -v 2>/dev/null || true
-    log "   Volumes удалены через docker-compose"
-  fi
-  
-  # Удаляем volumes вручную, если они остались
-  if [ -n "$volumes" ]; then
-    for vol in $volumes; do
-      if docker volume inspect "$vol" >/dev/null 2>&1; then
-        docker volume rm "$vol" 2>/dev/null && log "   Удален volume: $vol" || warn "   Не удалось удалить volume: $vol"
-      fi
-    done
-  fi
-  
-  # Удаляем volumes по паттерну
-  for vol in $(docker volume ls --format '{{.Name}}' | grep -E '^(app_|unicnet\.)' 2>/dev/null || true); do
-    docker volume rm "$vol" 2>/dev/null && log "   Удален volume: $vol" || true
-  done
-  
-  # 3. Удаляем сеть
-  log "3. Удаляю сеть Docker..."
+  # Удаляем сеть (docker-compose down не удаляет external сети)
+  log "Удаляю сеть Docker..."
   if docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1; then
-    for container in $(docker network inspect "$DOCKER_NETWORK" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || true); do
-      docker network disconnect -f "$DOCKER_NETWORK" "$container" 2>/dev/null || true
-    done
-    docker network rm "$DOCKER_NETWORK" 2>/dev/null && log "   Сеть $DOCKER_NETWORK удалена" || warn "   Не удалось удалить сеть $DOCKER_NETWORK"
+    docker network rm "$DOCKER_NETWORK" 2>/dev/null && log "Сеть $DOCKER_NETWORK удалена" || warn "Не удалось удалить сеть $DOCKER_NETWORK (возможно, к ней подключены другие контейнеры)"
   else
-    info "   Сеть $DOCKER_NETWORK не существует"
-  fi
-  
-  # 4. Удаляем образы
-  log "4. Удаляю образы..."
-  if [ -n "$imgs" ]; then
-    for img in $imgs; do
-      if [ -n "$img" ]; then
-        docker rmi -f "$img" 2>/dev/null && log "   Удален образ: $img" || warn "   Не удалось удалить образ: $img"
-      fi
-    done
-  else
-    info "   Образы не найдены"
+    info "Сеть $DOCKER_NETWORK не существует"
   fi
   
   echo
@@ -1624,17 +1619,18 @@ step_summary() {
 # Menu
 # =========================
 run_all() {
-  run_step "1/11 Зависимости (Docker, compose)"          step_deps          || true
-  run_step "2/11 Создание сети Docker"                            step_create_network|| true
-  run_step "3/11 Docker login в Yandex CR (опционально)"          step_docker_login  || true
-  run_step "4/11 Запуск Docker Compose"                           step_compose_up    || true
-  run_step "5/11 Создание пользователей и БД в MongoDB"           step_create_mongo_users_and_dbs || true
-  run_step "6/11 Получение токена Vault"                         step_get_vault_token || true
-  run_step "7/11 Создание секрета в Vault"                       step_create_vault_secret || true
-  run_step "8/11 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port|| true
-  run_step "9/11 Ожидание готовности Keycloak"                    step_wait_keycloak || true
-  run_step "10/11 Импорт realm и получение токена"                 step_import_realm  || true
-  run_step "11/11 Создание пользователя и назначение 3 групп"     step_create_user_and_groups || true
+  run_step "1/12 Зависимости (Docker, compose)"          step_deps          || true
+  run_step "2/12 Создание сети Docker"                            step_create_network|| true
+  run_step "3/12 Docker login в Yandex CR (опционально)"          step_docker_login  || true
+  run_step "4/12 Запуск Docker Compose"                           step_compose_up    || true
+  run_step "5/12 Создание пользователей и БД в MongoDB"           step_create_mongo_users_and_dbs || true
+  run_step "6/12 Получение токена Vault"                         step_get_vault_token || true
+  run_step "7/12 Создание секрета в Vault"                       step_create_vault_secret || true
+  run_step "8/12 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port|| true
+  run_step "9/12 Ожидание готовности Keycloak"                    step_wait_keycloak || true
+  run_step "10/12 Импорт realm и получение токена"                 step_import_realm  || true
+  run_step "11/12 Создание пользователя и назначение 3 групп"     step_create_user_and_groups || true
+  run_step "12/12 Перезапуск Docker Compose"                      step_restart_compose || true
   step_summary
 }
 
@@ -1654,9 +1650,10 @@ main_menu() {
     echo "  9) Дождаться готовности Keycloak"
     echo " 10) Импортировать realm"
     echo " 11) Создать пользователя и назначение 3 групп"
-    echo " 12) Показать итоги/URL"
-    echo " 13) Полная деинсталляция (контейнеры, тома, сеть, образы)"
-    echo " 14) Полная переустановка (деинсталляция + установка с нуля)"
+    echo " 12) Перезапустить Docker Compose (down и up -d)"
+    echo " 13) Показать итоги/URL"
+    echo " 14) Полная деинсталляция (контейнеры, тома, сеть, образы)"
+    echo " 15) Полная переустановка (деинсталляция + установка с нуля)"
     echo "  q) Выход"
     sep
     read -rp "Ваш выбор: " choice || true
@@ -1673,9 +1670,10 @@ main_menu() {
       9) run_step "Ожидание готовности Keycloak"         step_wait_keycloak ;;
       10) run_step "Импорт realm"                         step_import_realm ;;
       11) run_step "Создание пользователя и назначение 3 групп" step_create_user_and_groups ;;
-      12) step_summary; pause ;;
-      13) run_step "Полная деинсталляция" step_uninstall_full ;;
-      14) run_step "Полная переустановка" step_reinstall_full ;;
+      12) run_step "Перезапуск Docker Compose"             step_restart_compose ;;
+      13) step_summary; pause ;;
+      14) run_step "Полная деинсталляция" step_uninstall_full ;;
+      15) run_step "Полная переустановка" step_reinstall_full ;;
       q|Q) echo "Выход."; exit 0 ;;
       *) warn "Некорректный выбор." ;;
     esac
