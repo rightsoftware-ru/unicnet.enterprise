@@ -262,9 +262,26 @@ cr.yandex
 
 #### Настройка переменных окружения
 
-Перед запуском Docker Compose необходимо применить переменные окружения из файла `export_variables.txt`:
+Перед запуском Docker Compose необходимо отредактировать и применить переменные окружения из файла `export_variables.txt`:
 
-1. Если файл `export_variables.txt` существует в корне репозитория, примените его:
+1. **Отредактируйте файл `export_variables.txt`** в корне репозитория:
+
+   ```bash
+   nano export_variables.txt
+   ```
+
+   Или используйте любой другой текстовый редактор.
+
+   > **⚠️ ВАЖНО**: Обязательно измените значения переменных под вашу конфигурацию, особенно **пароли**:
+   > - `POSTGRES_PASSWORD` - пароль для PostgreSQL
+   > - `MONGO_INITDB_ROOT_PASSWORD` - пароль root пользователя MongoDB
+   > - `MONGO_UNICNET_PASSWORD` - пароль для пользователя UnicNet в MongoDB
+   > - `MONGO_LOGGER_PASSWORD` - пароль для пользователя Logger в MongoDB
+   > - `MONGO_VAULT_PASSWORD` - пароль для пользователя Vault в MongoDB
+   > - `KEYCLOAK_ADMIN_PASSWORD` - пароль администратора Keycloak
+   > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** замените `default_license_data` на вашу реальную лицензию
+
+2. **Примените переменные окружения** из отредактированного файла:
 
    ```bash
    source export_variables.txt
@@ -276,19 +293,13 @@ cr.yandex
    . export_variables.txt
    ```
 
-2. **Обязательно установите лицензию** в переменную окружения `UniCommLicenseData`:
-
-   ```bash
-   export UniCommLicenseData="ваша_лицензия_здесь"
-   ```
-
-   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` экспортирована перед запуском `docker-compose up`.
-
-3. Проверьте, что переменные окружения применены:
+3. **Проверьте, что переменные окружения применены**, особенно лицензия:
 
    ```bash
    echo $UniCommLicenseData
    ```
+
+   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, а не `default_license_data`, и экспортирована перед запуском `docker-compose up`.
 
 #### Запуск контейнеров
 
@@ -310,36 +321,55 @@ docker compose -f docker-compose.yml pull
 docker compose -f docker-compose.yml up -d
 ```
 
-Проверьте, что контейнеры:
-
-- unicnet.postgres
-- unicnet.mongo
-- unicnet.keycloak
-- unicnet.backend
-- unicnet.frontend
-- unicnet.logger
-- unicnet.vault
-- unicnet.syslog
-- unicnet.router
-
-корректно поднялись.
-
-Проверьте логи контейнера:
-
-```bash
-docker logs container_name
-```
-
 <!-- TOC --><a name="--5"></a>
 ### 6. Создание пользователей и БД в MongoDB
 
-После запуска контейнеров необходимо создать пользователей и базы данных в MongoDB. Это выполняется автоматически скриптом `install.sh`, но при ручной установке можно выполнить через MongoDB команды.
+После запуска контейнеров необходимо создать **трех пользователей** и соответствующие базы данных в MongoDB. Это выполняется автоматически скриптом `install.sh`, но при ручной установке можно выполнить через MongoDB команды.
 
-Для проверки созданных пользователей и БД подключитесь к контейнеру MongoDB:
+> **Примечание**: Используйте переменные окружения из файла `export_variables.txt`, которые вы применили на шаге 5. Убедитесь, что переменные экспортированы перед выполнением команд.
+
+Создайте пользователей и базы данных, используя переменные окружения. Выполните следующие команды:
+
+#### 1. Создание пользователя для UnicNet
 
 ```bash
-docker exec -it unicnet.mongo mongo admin -u unicnet -p mongo123
+docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+db = db.getSiblingDB('${MONGO_UNICNET_DB}');
+db.createUser({
+  user: '${MONGO_UNICNET_USER}',
+  pwd: '${MONGO_UNICNET_PASSWORD}',
+  roles: [{ role: 'readWrite', db: '${MONGO_UNICNET_DB}' }]
+});
+"
 ```
+
+#### 2. Создание пользователя для Logger
+
+```bash
+docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+db = db.getSiblingDB('${MONGO_LOGGER_DB}');
+db.createUser({
+  user: '${MONGO_LOGGER_USER}',
+  pwd: '${MONGO_LOGGER_PASSWORD}',
+  roles: [{ role: 'readWrite', db: '${MONGO_LOGGER_DB}' }]
+});
+"
+```
+
+#### 3. Создание пользователя для Vault
+
+```bash
+docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+db = db.getSiblingDB('${MONGO_VAULT_DB}');
+db.createUser({
+  user: '${MONGO_VAULT_USER}',
+  pwd: '${MONGO_VAULT_PASSWORD}',
+  roles: [{ role: 'readWrite', db: '${MONGO_VAULT_DB}' }]
+});
+"
+```
+
+> **Примечание**: Если пользователи уже существуют, MongoDB вернет ошибку. Это нормально - пользователи уже созданы. При необходимости можно использовать `db.updateUser()` для изменения паролей.
 
 <!-- TOC --><a name="-vault-token"></a>
 ### 7. Получение токена Vault
@@ -357,6 +387,11 @@ curl -s "http://localhost:8200/api/token/0f8e160416b94225a73f86ac23b9118b?userna
 
 Создайте секрет в Vault с метаданными для работы системы. Используйте токен, полученный на предыдущем шаге:
 
+> **Примечание**: Значения для Keycloak берутся из переменных окружения, которые вы применили на шаге 5:
+> - `KeyCloak.AdmUn` - значение из переменной `${KEYCLOAK_ADMIN_USER}` (по умолчанию: `unicnet`)
+> - `KeyCloak.AdmPw` - значение из переменной `${KEYCLOAK_ADMIN_PASSWORD}` (по умолчанию: `admin123`)
+> - `KeyCloak.Realm` - имя realm из файла `app/keycloak-import/unicnet-realm.json` (обычно: `unicnet`)
+
 ```bash
 curl -X POST "http://localhost:8200/api/Secrets" \
   -H "Authorization: Bearer ваш_токен" \
@@ -372,8 +407,8 @@ curl -X POST "http://localhost:8200/api/Secrets" \
       "api.backend.url": "http://unicnet.backend:8080/",
       "api.logger.url": "http://unicnet.logger:8080/",
       "api.syslog.url": "http://unicnet.syslog:8080/",
-      "KeyCloak.AdmUn": "unicnet",
-      "KeyCloak.AdmPw": "admin123",
+      "KeyCloak.AdmUn": "'"${KEYCLOAK_ADMIN_USER}"'",
+      "KeyCloak.AdmPw": "'"${KEYCLOAK_ADMIN_PASSWORD}"'",
       "KeyCloak.Realm": "unicnet",
       "RouterHotSpot": "unicnet.router:30115"
     },
@@ -382,7 +417,10 @@ curl -X POST "http://localhost:8200/api/Secrets" \
   }'
 ```
 
-Замените `ваш_токен` на токен, полученный на шаге 7.
+> **Важно**: 
+> - Замените `ваш_токен` на токен, полученный на шаге 7
+> - Значения `KeyCloak.AdmUn` и `KeyCloak.AdmPw` будут автоматически подставлены из переменных окружения `${KEYCLOAK_ADMIN_USER}` и `${KEYCLOAK_ADMIN_PASSWORD}`
+> - Значение `KeyCloak.Realm` должно соответствовать имени realm из файла `app/keycloak-import/unicnet-realm.json` (обычно `unicnet`)
 
 <!-- TOC --><a name="-keycloak-wait"></a>
 ### 9. Ожидание готовности Keycloak
