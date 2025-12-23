@@ -387,10 +387,19 @@ curl -s "http://localhost:8200/api/token/0f8e160416b94225a73f86ac23b9118b?userna
 
 Создайте секрет в Vault с метаданными для работы системы. Используйте токен, полученный на предыдущем шаге:
 
+Перед выполнением команды скопируйте значения из переменных окружения:
+
+```bash
+echo "KeyCloak.AdmUn: ${KEYCLOAK_ADMIN_USER}"
+echo "KeyCloak.AdmPw: ${KEYCLOAK_ADMIN_PASSWORD}"
+```
+
 > **Примечание**: Значения для Keycloak берутся из переменных окружения, которые вы применили на шаге 5:
-> - `KeyCloak.AdmUn` - значение из переменной `${KEYCLOAK_ADMIN_USER}` (по умолчанию: `unicnet`)
-> - `KeyCloak.AdmPw` - значение из переменной `${KEYCLOAK_ADMIN_PASSWORD}` (по умолчанию: `admin123`)
+> - `KeyCloak.AdmUn` - скопируйте значение из переменной `${KEYCLOAK_ADMIN_USER}` (по умолчанию: `unicnet`)
+> - `KeyCloak.AdmPw` - скопируйте значение из переменной `${KEYCLOAK_ADMIN_PASSWORD}` (по умолчанию: `admin123`)
 > - `KeyCloak.Realm` - имя realm из файла `app/keycloak-import/unicnet-realm.json` (обычно: `unicnet`)
+
+Создайте секрет в Vault, заменив значения в команде:
 
 ```bash
 curl -X POST "http://localhost:8200/api/Secrets" \
@@ -407,8 +416,8 @@ curl -X POST "http://localhost:8200/api/Secrets" \
       "api.backend.url": "http://unicnet.backend:8080/",
       "api.logger.url": "http://unicnet.logger:8080/",
       "api.syslog.url": "http://unicnet.syslog:8080/",
-      "KeyCloak.AdmUn": "'"${KEYCLOAK_ADMIN_USER}"'",
-      "KeyCloak.AdmPw": "'"${KEYCLOAK_ADMIN_PASSWORD}"'",
+      "KeyCloak.AdmUn": "скопируйте_значение_из_KEYCLOAK_ADMIN_USER",
+      "KeyCloak.AdmPw": "скопируйте_значение_из_KEYCLOAK_ADMIN_PASSWORD",
       "KeyCloak.Realm": "unicnet",
       "RouterHotSpot": "unicnet.router:30115"
     },
@@ -419,7 +428,8 @@ curl -X POST "http://localhost:8200/api/Secrets" \
 
 > **Важно**: 
 > - Замените `ваш_токен` на токен, полученный на шаге 7
-> - Значения `KeyCloak.AdmUn` и `KeyCloak.AdmPw` будут автоматически подставлены из переменных окружения `${KEYCLOAK_ADMIN_USER}` и `${KEYCLOAK_ADMIN_PASSWORD}`
+> - Замените `скопируйте_значение_из_KEYCLOAK_ADMIN_USER` на значение из переменной `${KEYCLOAK_ADMIN_USER}`
+> - Замените `скопируйте_значение_из_KEYCLOAK_ADMIN_PASSWORD` на значение из переменной `${KEYCLOAK_ADMIN_PASSWORD}`
 > - Значение `KeyCloak.Realm` должно соответствовать имени realm из файла `app/keycloak-import/unicnet-realm.json` (обычно `unicnet`)
 
 <!-- TOC --><a name="-keycloak-wait"></a>
