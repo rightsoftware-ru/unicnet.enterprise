@@ -36,3 +36,39 @@ export KEYCLOAK_ADMIN_PASSWORD=admin123
 # Лицензия (используется всеми сервисами)
 export UniCommLicenseData=default_license_data
 
+# ============================================
+# Как удалить переменные окружения
+# ============================================
+# Для удаления переменной окружения используйте команду unset:
+# 
+# unset POSTGRES_DB
+# unset POSTGRES_USER
+# unset POSTGRES_PASSWORD
+# unset MONGO_INITDB_ROOT_USERNAME
+# unset MONGO_INITDB_ROOT_PASSWORD
+# unset MONGO_INITDB_DATABASE
+# unset MONGO_UNICNET_DB
+# unset MONGO_UNICNET_USER
+# unset MONGO_UNICNET_PASSWORD
+# unset MONGO_LOGGER_DB
+# unset MONGO_LOGGER_USER
+# unset MONGO_LOGGER_PASSWORD
+# unset MONGO_VAULT_DB
+# unset MONGO_VAULT_USER
+# unset MONGO_VAULT_PASSWORD
+# unset KEYCLOAK_ADMIN_USER
+# unset KEYCLOAK_ADMIN_PASSWORD
+# unset UniCommLicenseData
+#
+# Или удалите все переменные одной командой:
+# unset POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD \
+#       MONGO_INITDB_ROOT_USERNAME MONGO_INITDB_ROOT_PASSWORD MONGO_INITDB_DATABASE \
+#       MONGO_UNICNET_DB MONGO_UNICNET_USER MONGO_UNICNET_PASSWORD \
+#       MONGO_LOGGER_DB MONGO_LOGGER_USER MONGO_LOGGER_PASSWORD \
+#       MONGO_VAULT_DB MONGO_VAULT_USER MONGO_VAULT_PASSWORD \
+#       KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD UniCommLicenseData
+#
+# Проверить, что переменная удалена:
+# echo $POSTGRES_DB
+# (должно быть пусто)
+
