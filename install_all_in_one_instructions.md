@@ -549,7 +549,7 @@ curl http://localhost:8095/health/ready
 3. Нажмите "Add user"
 4. Заполните форму:
    - **Username**: например, `unicadmin`
-   - **Email**: например, `unicadmin@local`
+   - **Email**: например, `unicadmin@local.com`
    - Включите опции "Email verified" и "Enabled"
 5. Нажмите "Create"
 
