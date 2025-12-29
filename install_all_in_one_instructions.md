@@ -188,7 +188,7 @@ graph TD
       nano export_variables.txt
       ```
 
-      Или используйте любой другой текстовый редактор.
+      > **Примечание**: Вы можете использовать любой другой текстовый редактор вместо `nano` (например, `vi`, `vim`, `gedit`, `code` и т.д.).
 
       > **⚠️ ВАЖНО**: Обязательно измените значения переменных под вашу конфигурацию, особенно **пароли**:
       > - `POSTGRES_PASSWORD` - пароль для PostgreSQL
@@ -322,7 +322,7 @@ cr.yandex
    nano export_variables.txt
    ```
 
-   Или используйте любой другой текстовый редактор.
+   > **Примечание**: Вы можете использовать любой другой текстовый редактор вместо `nano` (например, `vi`, `vim`, `gedit`, `code` и т.д.).
 
    > **⚠️ ВАЖНО**: Обязательно измените значения переменных под вашу конфигурацию, особенно **пароли**:
    > - `POSTGRES_PASSWORD` - пароль для PostgreSQL
@@ -807,18 +807,13 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 6. **Проблемы с секретом в Vault**. Если у вас проблемы с секретом в Vault (например, секрет не создается или не читается), попробуйте удалить коллекцию в MongoDB:
 
    ```bash
-   # Подключитесь к MongoDB контейнеру
-   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD}
-   
-   # Переключитесь на базу данных Vault
-   use vault_db
+   # Подключитесь к MongoDB контейнеру от пользователя vault_user
+   docker exec -it unicnet.mongo mongo vault_db -u ${MONGO_VAULT_USER:-vault_user} -p ${MONGO_VAULT_PASSWORD:-vault_pass_123} --authenticationDatabase vault_db
    
    # Просмотрите все коллекции
    show collections
    
-   # Удалите коллекцию с секретами (обычно называется "secrets" или "Secrets")
-   db.secrets.drop()
-   # или
+   # Удалите коллекцию с секретами (коллекция называется "Secrets")
    db.Secrets.drop()
    
    # Выйдите из MongoDB
