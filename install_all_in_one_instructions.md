@@ -528,10 +528,13 @@ curl http://localhost:8095/health/ready
    ```
 
 3. В веб-интерфейсе Keycloak:
-   - Наведите курсор на выпадающий список "Master" (в левом верхнем углу)
-   - Нажмите "Create Realm"
-   - Нажмите "Select file" и выберите файл `app/keycloak-import/unicnet-realm.json`
-   - Нажмите "Create"
+   - **Наведите курсор на выпадающий список "Master"** (в левом верхнем углу сайдбара, рядом с логотипом Keycloak)
+   
+   ![](./unicnet_assets/keycloak_master_dropdown.png "Выпадающий список Master в Keycloak")
+   
+   - В появившемся меню нажмите **"Create Realm"**
+   - Нажмите **"Select file"** и выберите файл `app/keycloak-import/unicnet-realm.json`
+   - Нажмите **"Create"**
 
 ![](./unicnet_assets/create_realm.png "Страница создания realm")
 
