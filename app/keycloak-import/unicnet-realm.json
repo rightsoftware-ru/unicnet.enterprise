@@ -470,6 +470,35 @@
       "subGroups": []
     }
   ],
+  "users": [
+    {
+      "id": "unicadmin-user-id",
+      "createdTimestamp": 1700000000000,
+      "username": "unicadmin",
+      "enabled": true,
+      "totp": false,
+      "emailVerified": true,
+      "firstName": "UnicNet",
+      "lastName": "Administrator",
+      "email": "unicadmin@local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "temp_password_will_be_changed_by_script",
+          "temporary": false
+        }
+      ],
+      "disableableCredentialTypes": [],
+      "requiredActions": [],
+      "realmRoles": [],
+      "notBefore": 0,
+      "groups": [
+        "/unicnet_admin_group",
+        "/unicnet_superuser_group",
+        "/unicnet_user_group"
+      ]
+    }
+  ],
   "defaultRole": {
     "id": "a3f60834-23e3-4dfd-aaa1-904f8eb11533",
     "name": "default-roles-unicnet",
