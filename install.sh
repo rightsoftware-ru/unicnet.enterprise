@@ -295,11 +295,7 @@ collect_inputs() {
 # =========================
 # Steps
 # =========================
-# Функции для работы с JSON через jq в Docker контейнере
-_jq() {
-  docker run --rm -i stedolan/jq:latest "$@"
-}
-
+# Функции для работы с JSON через нативные bash-инструменты (sed, awk, grep)
 json_get_field() {
   local json field="$2"
   if [ $# -gt 0 ] && [ -n "$1" ]; then
@@ -307,7 +303,8 @@ json_get_field() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg field "$field" '.[$field] // empty'
+  # Используем sed для извлечения значения поля из JSON
+  echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -1
 }
 
 json_get_access_token() {
@@ -317,7 +314,8 @@ json_get_access_token() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r '.access_token // empty'
+  # Извлекаем access_token из JSON
+  echo "$json" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
 json_array_get_names() {
@@ -327,7 +325,8 @@ json_array_get_names() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg field "$field" '.[] | .[$field] // empty'
+  # Извлекаем значения поля из массива объектов JSON
+  echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p"
 }
 
 json_array_find_id_by_name() {
@@ -337,8 +336,43 @@ json_array_find_id_by_name() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg name "$search_name" --arg name_field "$name_field" --arg id_field "$id_field" \
-    '.[] | select(.[$name_field] == $name) | .[$id_field] // empty' | head -1
+  # Ищем объект в массиве по значению name_field и возвращаем значение id_field
+  # Используем awk для парсинга JSON массива объектов
+  echo "$json" | awk -v search_name="$search_name" -v name_field="$name_field" -v id_field="$id_field" '
+    BEGIN { 
+      in_object=0
+      found_name=0
+      id_value=""
+    }
+    {
+      # Ищем начало объекта
+      if (match($0, /\{/)) {
+        in_object=1
+        found_name=0
+        id_value=""
+      }
+      # Ищем поле name_field с нужным значением
+      if (in_object && match($0, "\"" name_field "\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"", arr)) {
+        if (arr[1] == search_name) {
+          found_name=1
+        }
+      }
+      # Если нашли нужное имя, ищем id_field
+      if (in_object && found_name && match($0, "\"" id_field "\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"", arr)) {
+        id_value=arr[1]
+      }
+      # Конец объекта - если нашли, выводим id и выходим
+      if (match($0, /\}/)) {
+        if (in_object && found_name && id_value != "") {
+          print id_value
+          exit
+        }
+        in_object=0
+        found_name=0
+        id_value=""
+      }
+    }
+  ' | head -1
 }
 
 wait_mongo_ready() {
@@ -643,7 +677,14 @@ step_get_vault_token() {
   
   if [ "$http_code" = "200" ]; then
     local token_extracted
-    token_extracted="$(echo "$response_body" | _jq -r '.token // .access_token // .value // . // empty' 2>/dev/null || echo "")"
+    # Пробуем извлечь токен из разных возможных полей JSON
+    token_extracted="$(echo "$response_body" | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    if [ -z "$token_extracted" ]; then
+      token_extracted="$(echo "$response_body" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    fi
+    if [ -z "$token_extracted" ]; then
+      token_extracted="$(echo "$response_body" | sed -n 's/.*"value"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    fi
     
     if [ -z "$token_extracted" ] || [ "$token_extracted" = "null" ] || [ "$token_extracted" = "empty" ]; then
       token_extracted="$(echo "$response_body" | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//;s/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '\n')"
@@ -1254,16 +1295,11 @@ step_create_user_and_groups() {
       info "  HTTP код: ${http_code:-unknown}"
       
       if [ "$http_code" = "200" ]; then
-        # Извлекаем токен (как в get_admin_token.sh)
-        if command -v jq >/dev/null 2>&1; then
-          token="$(echo "$response" | jq -r '.access_token // empty' 2>/dev/null || echo "")"
-        else
-          # Используем json_get_access_token как fallback
-          token="$(echo "$response" | json_get_access_token 2>/dev/null || echo "")"
-          # Если не сработало, пробуем sed
-          if [ -z "$token" ] || [ "$token" = "null" ] || [ "$token" = "empty" ]; then
-            token="$(echo "$response" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p' | head -1)"
-          fi
+        # Извлекаем токен используя нативные bash-инструменты
+        token="$(echo "$response" | json_get_access_token 2>/dev/null || echo "")"
+        # Если не сработало, пробуем sed напрямую
+        if [ -z "$token" ] || [ "$token" = "null" ] || [ "$token" = "empty" ]; then
+          token="$(echo "$response" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
         fi
         
         if [ -n "$token" ] && [ "$token" != "null" ] && [ "$token" != "empty" ]; then
@@ -1279,13 +1315,9 @@ step_create_user_and_groups() {
         if [ -n "$http_code" ] && [ "$http_code" != "200" ]; then
           if echo "$response" | grep -qiE "error|invalid|unauthorized"; then
             local error_msg
-            if command -v jq >/dev/null 2>&1; then
-              error_msg="$(echo "$response" | jq -r '.error_description // .error // empty' 2>/dev/null || echo "")"
-            else
-              error_msg="$(json_get_field "$response" "error_description" 2>/dev/null || echo "")"
-              if [ -z "$error_msg" ] || [ "$error_msg" = "null" ] || [ "$error_msg" = "empty" ]; then
-                error_msg="$(json_get_field "$response" "error" 2>/dev/null || echo "")"
-              fi
+            error_msg="$(json_get_field "$response" "error_description" 2>/dev/null || echo "")"
+            if [ -z "$error_msg" ] || [ "$error_msg" = "null" ] || [ "$error_msg" = "empty" ]; then
+              error_msg="$(json_get_field "$response" "error" 2>/dev/null || echo "")"
             fi
             if [ -n "$error_msg" ] && [ "$error_msg" != "null" ] && [ "$error_msg" != "empty" ]; then
               warn "Ошибка (HTTP ${http_code}): ${error_msg}"
@@ -1448,7 +1480,7 @@ step_deps() {
   if ! _docker_compose_cmd >/dev/null 2>&1; then
     err "Docker Compose не установлен (не найдена команда docker compose или docker-compose). Установите Docker Compose вручную перед запуском скрипта."; return 1
   fi
-  log "Для работы с JSON используется jq через Docker контейнер stedolan/jq"
+  log "Для работы с JSON используются нативные bash-инструменты (sed, awk, grep)"
   log "Зависимости в порядке."; return 0
 }
 

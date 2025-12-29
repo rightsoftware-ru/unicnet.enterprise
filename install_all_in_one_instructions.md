@@ -658,34 +658,222 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 
 1. **Шаг завершился с ошибкой HTTP 401 или проблемой с токенами**. Если какой-либо шаг (особенно шаги 6, 7, 10, 11, связанные с Keycloak или Vault) завершился с ошибкой HTTP 401 или проблемой получения токена, попробуйте запустить его повторно. Иногда сервисы (Keycloak, Vault) могут быть не полностью готовы при первом запросе после запуска или импорта realm. Просто выберите соответствующий пункт в меню скрипта еще раз - обычно повторный запуск решает проблему.
 
-2. **Не создалась база данных в PostgreSQL при первом запуске**.Вы можете самостоятельно создать необходимую базу данных через контейнер. Просмотрите запущенные контейнеры. Выполните команду:
+2. **Не создалась база данных в PostgreSQL при первом запуске**. Вы можете самостоятельно подключиться к PostgreSQL и создать необходимую базу данных:
 
+   **Подключение к контейнеру PostgreSQL:**
+   
    ```bash
-   docker ps
+   # Подключиться к контейнеру PostgreSQL
+   docker exec -it unicnet.postgres /bin/bash
    ```
-
-   Скопируйте `NAMES` контейнера PostgreSQL. Зайдите в контейнер PostgreSQL под root. Выполните команду:
-
+   
+   Или выполнить команду напрямую без входа в контейнер:
+   
    ```bash
-   docker exec -u root -t -i 'container_name' /bin/bash
+   # Подключиться к базе данных PostgreSQL напрямую
+   # Используйте переменные из export_variables.txt
+   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres
    ```
-
-   Используя пользователя POSTGRES_USER, подключитесь к базе данных `postgres`. Выполните команду:
-
+   
+   **Просмотр всех баз данных:**
+   
    ```bash
-   psql -U <username> -d postgres
+   # Из контейнера (если вы уже внутри)
+   psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l"
+   
+   # Или напрямую из терминала
+   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l"
    ```
-
-   Просмотрите список баз данных. Выполните команду:
-
+   
+   В интерактивном режиме psql используйте команду:
+   
    ```sql
    \l
    ```
-
-   Если вашей базы данных нет, создайте её. Выполните команду:
-
+   
+   **Создание базы данных:**
+   
+   ```bash
+   # Создать базу данных из терминала
+   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-unicnetdb};"
+   ```
+   
+   Или в интерактивном режиме psql:
+   
    ```sql
-   CREATE DATABASE dbname;
+   CREATE DATABASE unicnetdb;
+   ```
+   
+   **Проверка существования базы данных:**
+   
+   ```bash
+   # Проверить, существует ли база данных
+   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l" | grep ${POSTGRES_DB:-unicnetdb}
+   ```
+   
+   **Полезные команды psql:**
+   
+   ```sql
+   \l          -- Список всех баз данных
+   \c dbname  -- Подключиться к базе данных
+   \dt        -- Список всех таблиц в текущей базе данных
+   \du        -- Список всех пользователей
+   \q         -- Выйти из psql
+   ```
+   
+   > **Примечание**: Используйте переменные окружения из файла `export_variables.txt`:
+   > - `POSTGRES_USER` - имя пользователя (по умолчанию: `unicnet`)
+   > - `POSTGRES_DB` - имя базы данных (по умолчанию: `unicnetdb`)
+   > - `POSTGRES_PASSWORD` - пароль пользователя
+
+3. **Как удалить переменные окружения**. Для удаления переменных окружения используйте команду `unset`:
+
+   ```bash
+   # Удалить одну переменную
+   unset POSTGRES_PASSWORD
+   unset UniCommLicenseData
+   
+   # Удалить несколько переменных
+   unset POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
+   
+   # Удалить все переменные UnicNet одной командой
+   unset POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD \
+         MONGO_INITDB_ROOT_USERNAME MONGO_INITDB_ROOT_PASSWORD MONGO_INITDB_DATABASE \
+         MONGO_UNICNET_DB MONGO_UNICNET_USER MONGO_UNICNET_PASSWORD \
+         MONGO_LOGGER_DB MONGO_LOGGER_USER MONGO_LOGGER_PASSWORD \
+         MONGO_VAULT_DB MONGO_VAULT_USER MONGO_VAULT_PASSWORD \
+         KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD UniCommLicenseData
+   
+   # Проверить, что переменная удалена
+   echo $POSTGRES_PASSWORD
+   # (должно быть пусто)
+   ```
+
+   > **Примечание**: Переменные окружения удаляются только из текущей сессии shell. После закрытия терминала они автоматически удаляются. Для постоянного удаления нужно также удалить их из файла `export_variables.txt` или из файла конфигурации shell (`.bashrc`, `.bash_profile` и т.д.).
+
+4. **Как посмотреть логи всех сервисов**. Для просмотра логов каждого сервиса используйте следующие команды:
+
+   ```bash
+   # Логи конкретного контейнера
+   docker logs unicnet.backend
+   docker logs unicnet.frontend
+   docker logs unicnet.logger
+   docker logs unicnet.vault
+   docker logs unicnet.syslog
+   docker logs unicnet.router
+   docker logs unicnet.postgres
+   docker logs unicnet.mongo
+   docker logs unicnet.keycloak
+   
+   # Логи с отслеживанием в реальном времени (follow)
+   docker logs -f unicnet.backend
+   docker logs -f unicnet.frontend
+   
+   # Последние N строк логов
+   docker logs --tail 100 unicnet.backend
+   
+   # Логи за последний час
+   docker logs --since 1h unicnet.backend
+   
+   # Логи всех контейнеров unicnet
+   docker ps --filter "name=unicnet" --format "{{.Names}}" | xargs -I {} sh -c 'echo "=== {} ===" && docker logs --tail 50 {}'
+   ```
+
+5. **Как посмотреть переменные окружения в контейнерах**. Для просмотра переменных окружения каждого контейнера:
+
+   ```bash
+   # Все переменные окружения конкретного контейнера
+   docker exec unicnet.backend env
+   docker exec unicnet.frontend env
+   docker exec unicnet.logger env
+   docker exec unicnet.vault env
+   docker exec unicnet.syslog env
+   docker exec unicnet.router env
+   
+   # Отсортированные переменные окружения
+   docker exec unicnet.backend env | sort
+   
+   # Только переменные, связанные с лицензией
+   docker exec unicnet.backend env | grep -i license
+   
+   # Все переменные всех контейнеров unicnet
+   docker ps --filter "name=unicnet" --format "{{.Names}}" | xargs -I {} sh -c 'echo "=== {} ===" && docker exec {} env | sort'
+   
+   # Конкретная переменная из контейнера
+   docker exec unicnet.backend sh -c 'echo $UniCommLicenseData'
+   ```
+
+6. **Проблемы с секретом в Vault**. Если у вас проблемы с секретом в Vault (например, секрет не создается или не читается), попробуйте удалить коллекцию в MongoDB:
+
+   ```bash
+   # Подключитесь к MongoDB контейнеру
+   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD}
+   
+   # Переключитесь на базу данных Vault
+   use vault_db
+   
+   # Просмотрите все коллекции
+   show collections
+   
+   # Удалите коллекцию с секретами (обычно называется "secrets" или "Secrets")
+   db.secrets.drop()
+   # или
+   db.Secrets.drop()
+   
+   # Выйдите из MongoDB
+   exit
+   ```
+
+   После удаления коллекции перезапустите контейнер Vault:
+
+   ```bash
+   docker restart unicnet.vault
+   ```
+
+   Затем создайте секрет заново (см. шаг 8 в разделе "Ручная установка").
+
+7. **Как посмотреть пользователей в MongoDB**. Для просмотра всех пользователей в MongoDB:
+
+   ```bash
+   # Подключитесь к MongoDB контейнеру
+   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD}
+   
+   # Просмотрите всех пользователей во всех базах данных
+   db.getUsers()
+   
+   # Просмотрите пользователей конкретной базы данных
+   use unicnet_db
+   db.getUsers()
+   
+   # Или используйте команду для просмотра пользователей через admin базу
+   use admin
+   db.system.users.find().pretty()
+   
+   # Просмотрите пользователей для каждой базы данных
+   use unicnet_db
+   db.getUsers()
+   
+   use logger_db
+   db.getUsers()
+   
+   use vault_db
+   db.getUsers()
+   
+   # Выйдите из MongoDB
+   exit
+   ```
+
+   Или одной командой из терминала:
+
+   ```bash
+   # Пользователи базы данных unicnet_db
+   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('unicnet_db').getUsers()"
+   
+   # Пользователи базы данных logger_db
+   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('logger_db').getUsers()"
+   
+   # Пользователи базы данных vault_db
+   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('vault_db').getUsers()"
    ```
 
 
