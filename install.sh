@@ -60,6 +60,7 @@ KC_SCHEME="http"
 CURL_OPTS=()
 ACCESS_TOKEN=""
 VAULT_TOKEN=""
+AUTO_INSTALL="${AUTO_INSTALL:-false}"  # Флаг автоматической установки (без пауз)
 
 # =========================
 # UI helpers
@@ -70,7 +71,11 @@ warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 err()  { echo -e "${RED}[x]${NC} $*"; }
 info() { echo -e "${BLUE}[*]${NC} $*"; }
 sep()  { echo -e "${GRAY}----------------------------------------------------------------${NC}"; }
-pause() { read -rp "Нажмите Enter, чтобы продолжить..."; }
+pause() { 
+  if [ "$AUTO_INSTALL" != "true" ]; then
+    read -rp "Нажмите Enter, чтобы продолжить..."
+  fi
+}
 
 # =========================
 # Helpers
@@ -336,43 +341,35 @@ json_array_find_id_by_name() {
   else
     json="$(cat)"
   fi
-  # Ищем объект в массиве по значению name_field и возвращаем значение id_field
-  # Используем awk для парсинга JSON массива объектов
-  echo "$json" | awk -v search_name="$search_name" -v name_field="$name_field" -v id_field="$id_field" '
-    BEGIN { 
-      in_object=0
-      found_name=0
-      id_value=""
-    }
-    {
-      # Ищем начало объекта
-      if (match($0, /\{/)) {
-        in_object=1
-        found_name=0
-        id_value=""
-      }
-      # Ищем поле name_field с нужным значением
-      if (in_object && match($0, "\"" name_field "\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"", arr)) {
-        if (arr[1] == search_name) {
-          found_name=1
-        }
-      }
-      # Если нашли нужное имя, ищем id_field
-      if (in_object && found_name && match($0, "\"" id_field "\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"", arr)) {
-        id_value=arr[1]
-      }
-      # Конец объекта - если нашли, выводим id и выходим
-      if (match($0, /\}/)) {
-        if (in_object && found_name && id_value != "") {
-          print id_value
-          exit
-        }
-        in_object=0
-        found_name=0
-        id_value=""
-      }
-    }
-  ' | head -1
+  
+  # Нормализуем JSON: убираем переносы строк, но сохраняем структуру
+  local normalized_json
+  normalized_json="$(echo "$json" | tr '\n' ' ' | sed 's/  */ /g')"
+  
+  # Используем sed для поиска: ищем объект с нужным name и извлекаем id из того же объекта
+  # Паттерн 1: ищем "name":"search_name" и затем в пределах того же объекта ищем "id":"..."
+  local result
+  result="$(echo "$normalized_json" | sed -n "s/.*\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\"[^}]*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1)"
+  
+  # Если не нашли, пробуем обратный порядок: сначала id, потом name
+  if [ -z "$result" ]; then
+    result="$(echo "$normalized_json" | sed -n "s/.*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\"[^}]*\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\".*/\1/p" | head -1)"
+  fi
+  
+  # Если все еще не нашли, используем более сложный подход: разбиваем на объекты
+  if [ -z "$result" ]; then
+    # Разбиваем JSON массив на отдельные объекты по },{
+    echo "$normalized_json" | sed 's/\[//;s/\]//' | sed 's/},{/}\n{/g' | while IFS= read -r obj; do
+      # Проверяем, содержит ли объект нужное имя
+      if echo "$obj" | grep -q "\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\""; then
+        # Извлекаем id из этого объекта
+        echo "$obj" | sed -n "s/.*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+        break
+      fi
+    done | head -1
+  else
+    echo "$result"
+  fi
 }
 
 wait_mongo_ready() {
@@ -755,7 +752,6 @@ step_create_vault_secret() {
   local backend_url="http://unicnet.backend:8080/"
   local logger_url="http://unicnet.logger:8080/"
   local syslog_url="http://unicnet.syslog:8080/"
-  local router_url="http://unicnet.router:30115/"
   local router_hostport="unicnet.router:30115"
   
   info "Используются внутренние URL (Docker сеть):"
@@ -763,7 +759,7 @@ step_create_vault_secret() {
   info "  Backend:  ${backend_url}"
   info "  Logger:   ${logger_url}"
   info "  Syslog:   ${syslog_url}"
-  info "  Router:   ${router_url}"
+  info "  Router:   ${router_hostport}"
   
   local json_payload
   json_payload=$(cat <<EOF
@@ -1357,15 +1353,36 @@ step_create_user_and_groups() {
     return 1
   fi
 
-  log "Создаю пользователя '${NEW_USER}' в realm '${REALM}'"
-  local create_resp_headers user_id httpc
-  create_resp_headers="$(mktemp)"
+  # Сначала проверяем, существует ли пользователь (возможно, он уже импортирован из realm JSON)
+  log "Проверяю существование пользователя '${NEW_USER}' в realm '${REALM}'"
+  local user_search_response
+  user_search_response="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    --get --data-urlencode "username=${NEW_USER}" \
+    "${KC_URL}/admin/realms/${REALM}/users")"
   
-  # Создаем временный файл для JSON payload
-  local json_payload_file
-  json_payload_file="$(mktemp)"
+  local user_id
+  user_id="$(echo "$user_search_response" | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)"
   
-  cat > "${json_payload_file}" <<EOF
+  local user_exists=false
+  if [ -n "$user_id" ] && [ "$user_id" != "null" ] && [ "$user_id" != "empty" ]; then
+    user_exists=true
+    log "Пользователь '${NEW_USER}' уже существует (ID: $user_id)"
+    info "Пользователь, вероятно, был импортирован из realm JSON со всеми группами"
+    info "Обновляю только пароль пользователя"
+  else
+    log "Пользователь '${NEW_USER}' не найден, создаю нового"
+    user_exists=false
+  fi
+  
+  if [ "$user_exists" = "false" ]; then
+    # Создаем нового пользователя
+    local create_resp_headers httpc
+    create_resp_headers="$(mktemp)"
+    
+    local json_payload_file
+    json_payload_file="$(mktemp)"
+    
+    cat > "${json_payload_file}" <<EOF
 {
   "username": "${NEW_USER}",
   "email": "${NEW_USER_EMAIL}",
@@ -1378,64 +1395,224 @@ step_create_user_and_groups() {
   }]
 }
 EOF
-  
-  httpc="$(curl -s "${CURL_OPTS[@]}" -D "${create_resp_headers}" -o /dev/null -w "%{http_code}" \
-    -X POST "${KC_URL}/admin/realms/${REALM}/users" \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
-    --data-binary "@${json_payload_file}")"
-  
-  rm -f "${json_payload_file}"
+    
+    httpc="$(curl -s "${CURL_OPTS[@]}" -D "${create_resp_headers}" -o /dev/null -w "%{http_code}" \
+      -X POST "${KC_URL}/admin/realms/${REALM}/users" \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
+      --data-binary "@${json_payload_file}")"
+    
+    rm -f "${json_payload_file}"
 
-  case "$httpc" in
-    201)
-      user_id="$(awk -F'/users/' '/^Location:/ {print $2}' "${create_resp_headers}" | tr -d '\r\n')"
-      ;;
-    409|200)
-      user_id="$(
-        curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-          --get --data-urlencode "username=${NEW_USER}" \
-          "${KC_URL}/admin/realms/${REALM}/users" \
-        | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
-      )"
-      ;;
-    *)
-      err "Создание пользователя вернуло HTTP ${httpc}";;
-  esac
+    case "$httpc" in
+      201)
+        user_id="$(awk -F'/users/' '/^Location:/ {print $2}' "${create_resp_headers}" | tr -d '\r\n')"
+        log "Пользователь успешно создан (ID: $user_id)"
+        ;;
+      409)
+        # Пользователь был создан между проверкой и созданием
+        user_id="$(echo "$user_search_response" | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)"
+        if [ -z "$user_id" ]; then
+          user_id="$(
+            curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              --get --data-urlencode "username=${NEW_USER}" \
+              "${KC_URL}/admin/realms/${REALM}/users" \
+            | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
+          )"
+        fi
+        warn "Пользователь уже существует (HTTP 409), используем существующего"
+        ;;
+      *)
+        err "Создание пользователя вернуло HTTP ${httpc}"
+        rm -f "${create_resp_headers}"
+        return 1
+        ;;
+    esac
 
-  rm -f "${create_resp_headers}"
+    rm -f "${create_resp_headers}"
+  fi
 
   if [ -z "${user_id:-}" ]; then
     err "Не удалось определить ID пользователя."; return 1
+  fi
+  
+  # Обновляем пароль пользователя (для существующего или нового)
+  log "Устанавливаю пароль для пользователя '${NEW_USER}'"
+  local password_payload
+  password_payload="$(cat <<EOF
+{
+  "type": "password",
+  "value": "${NEW_USER_PASS}",
+  "temporary": false
+}
+EOF
+)"
+  
+  local password_update_code
+  password_update_code="$(curl -s "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" \
+    -X PUT "${KC_URL}/admin/realms/${REALM}/users/${user_id}/reset-password" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data-raw "${password_payload}")"
+  
+  if [ "$password_update_code" = "204" ] || [ "$password_update_code" = "200" ]; then
+    log "Пароль успешно обновлен"
+  else
+    warn "Не удалось обновить пароль (HTTP: ${password_update_code})"
+  fi
+
+  # Если пользователь уже существовал (импортирован из realm JSON), проверяем его текущие группы
+  if [ "$user_exists" = "true" ]; then
+    log "Проверяю текущие группы пользователя (возможно, уже назначены из realm JSON)"
+    local user_groups_json
+    user_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups")"
+    
+    local current_groups
+    mapfile -t current_groups < <(json_array_get_names "$user_groups_json" "name" || true)
+    
+    if [ "${#current_groups[@]}" -gt 0 ]; then
+      log "Пользователь уже имеет ${#current_groups[@]} групп: ${current_groups[*]}"
+      ASSIGNED_GROUPS="$(IFS=,; echo "${current_groups[*]}")"
+      info "Группы пользователя уже назначены (из realm JSON), пропускаю назначение групп"
+      return 0
+    else
+      info "Пользователь существует, но группы не назначены, назначаю группы"
+    fi
   fi
 
   local all_groups_json
   all_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" "${KC_URL}/admin/realms/${REALM}/groups")"
 
-  mapfile -t all_names < <(json_array_get_names "$all_groups_json" "name")
-  local -a pick_names
-  mapfile -t pick_names < <(printf '%s\n' "${all_names[@]}" | grep -E '^unicnet_.*_group$' | head -n 3 || true)
-  if [ "${#pick_names[@]}" -lt 3 ]; then
-    local need=$((3 - ${#pick_names[@]}))
-    local extra; mapfile -t extra < <(printf '%s\n' "${all_names[@]}" | head -n "$((need))")
-    pick_names+=("${extra[@]}")
+  # Отладочная информация
+  if [ -z "$all_groups_json" ] || [ "$all_groups_json" = "[]" ]; then
+    warn "Список групп пуст или не получен. Возможно, realm еще не полностью импортирован."
+    info "Попробуйте подождать несколько секунд и запустить этот шаг повторно."
+    ASSIGNED_GROUPS="<не присвоены - группы не найдены>"
+    return 0
   fi
-  mapfile -t pick_names < <(printf '%s\n' "${pick_names[@]}" | awk 'NF{a[$0]++} END{for(k in a) print k}')
 
-  if [ "${#pick_names[@]}" -lt 1 ]; then err "Не найдено ни одной группы для назначения."; return 1; fi
+  mapfile -t all_names < <(json_array_get_names "$all_groups_json" "name")
+  
+  if [ "${#all_names[@]}" -eq 0 ]; then
+    warn "Не удалось извлечь имена групп из JSON ответа."
+    info "Ответ API (первые 200 символов):"
+    echo "$all_groups_json" | head -c 200
+    echo
+    ASSIGNED_GROUPS="<не присвоены - группы не найдены>"
+    return 0
+  fi
 
-  local assigned=()
-  for gname in "${pick_names[@]}"; do
-    local gid
-    gid="$(json_array_find_id_by_name "$all_groups_json" "$gname" "name" "id")"
-    if [ -n "$gid" ]; then
-      log "Добавляю пользователя в группу: $gname"
-      curl -s "${CURL_OPTS[@]}" -o /dev/null -X PUT -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-        "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups/${gid}" || true
-      assigned+=("$gname")
-    else
-      warn "Группа '$gname' не найдена."
+  info "Найдено групп в realm: ${#all_names[@]}"
+  if [ "${#all_names[@]}" -gt 0 ]; then
+    info "Доступные группы: ${all_names[*]}"
+  fi
+  
+  # Ищем конкретные группы UnicNet
+  local -a target_groups=("unicnet_admin_group" "unicnet_superuser_group" "unicnet_user_group")
+  local -a pick_names=()
+  
+  # Проверяем наличие каждой целевой группы
+  for target_group in "${target_groups[@]}"; do
+    if printf '%s\n' "${all_names[@]}" | grep -Fxq "$target_group"; then
+      pick_names+=("$target_group")
+      info "Найдена целевая группа: $target_group"
     fi
   done
+  
+  # Если не нашли все три целевые группы, добавляем другие группы с паттерном unicnet_*_group
+  if [ "${#pick_names[@]}" -lt 3 ]; then
+    local found_pattern_groups
+    mapfile -t found_pattern_groups < <(printf '%s\n' "${all_names[@]}" | grep -E '^unicnet_.*_group$' | grep -vFxf <(printf '%s\n' "${pick_names[@]}") || true)
+    
+    local need=$((3 - ${#pick_names[@]}))
+    if [ "${#found_pattern_groups[@]}" -gt 0 ] && [ "$need" -gt 0 ]; then
+      local add_count=$((need < ${#found_pattern_groups[@]} ? need : ${#found_pattern_groups[@]}))
+      for ((i=0; i<add_count; i++)); do
+        pick_names+=("${found_pattern_groups[$i]}")
+        info "Добавлена группа по паттерну: ${found_pattern_groups[$i]}"
+      done
+    fi
+  fi
+  
+  # Если все еще меньше 3, добавляем любые другие группы
+  if [ "${#pick_names[@]}" -lt 3 ]; then
+    local need=$((3 - ${#pick_names[@]}))
+    local other_groups
+    mapfile -t other_groups < <(printf '%s\n' "${all_names[@]}" | grep -vFxf <(printf '%s\n' "${pick_names[@]}") | head -n "$need" || true)
+    if [ "${#other_groups[@]}" -gt 0 ]; then
+      pick_names+=("${other_groups[@]}")
+      info "Добавлены дополнительные группы: ${other_groups[*]}"
+    fi
+  fi
+  
+  # Удаляем дубликаты
+  mapfile -t pick_names < <(printf '%s\n' "${pick_names[@]}" | awk 'NF{a[$0]++} END{for(k in a) print k}')
+
+  if [ "${#pick_names[@]}" -lt 1 ]; then 
+    warn "Не найдено ни одной группы для назначения."
+    info "Доступные группы: ${all_names[*]}"
+    ASSIGNED_GROUPS="<не присвоены>"
+    return 0
+  fi
+
+  info "Группы для назначения (${#pick_names[@]}): ${pick_names[*]}"
+  local assigned=()
+  local failed_groups=()
+  
+  for gname in "${pick_names[@]}"; do
+    info "Обрабатываю группу: $gname"
+    local gid
+    gid="$(json_array_find_id_by_name "$all_groups_json" "$gname" "name" "id")"
+    
+    if [ -z "$gid" ] || [ "$gid" = "null" ] || [ "$gid" = "empty" ]; then
+      warn "Группа '$gname' не найдена в основном списке (ID не извлечен)."
+      info "Попытка найти группу напрямую через API..."
+      # Попробуем найти группу через прямой поиск по имени
+      local direct_search
+      direct_search="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+        --get --data-urlencode "search=${gname}" \
+        "${KC_URL}/admin/realms/${REALM}/groups")"
+      gid="$(json_array_find_id_by_name "$direct_search" "$gname" "name" "id")"
+      
+      if [ -z "$gid" ] || [ "$gid" = "null" ] || [ "$gid" = "empty" ]; then
+        warn "Группа '$gname' не найдена даже через прямой поиск."
+        failed_groups+=("$gname")
+        continue
+      else
+        info "Группа '$gname' найдена через прямой поиск (ID: $gid)"
+      fi
+    else
+      info "Группа '$gname' найдена (ID: $gid)"
+    fi
+    
+    # Добавляем пользователя в группу
+    log "Добавляю пользователя в группу: $gname (ID: $gid)"
+    local put_response
+    put_response="$(curl -s "${CURL_OPTS[@]}" -w "\nHTTP_CODE:%{http_code}" -X PUT \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups/${gid}")"
+    local put_http_code
+    put_http_code="$(echo "$put_response" | grep "HTTP_CODE:" | cut -d: -f2 || echo "")"
+    
+    if [ "$put_http_code" = "204" ] || [ "$put_http_code" = "200" ]; then
+      log "✓ Пользователь успешно добавлен в группу: $gname"
+      assigned+=("$gname")
+    else
+      warn "✗ Не удалось добавить пользователя в группу '$gname' (HTTP: ${put_http_code})"
+      if [ -n "$put_response" ]; then
+        info "Ответ сервера: $(echo "$put_response" | sed '/HTTP_CODE:/d' | head -c 100)"
+      fi
+      failed_groups+=("$gname")
+    fi
+  done
+  
+  if [ "${#failed_groups[@]}" -gt 0 ]; then
+    warn "Не удалось добавить пользователя в группы: ${failed_groups[*]}"
+  fi
+  
+  if [ "${#assigned[@]}" -gt 0 ]; then
+    log "Пользователь успешно добавлен в ${#assigned[@]} групп: ${assigned[*]}"
+  fi
   ASSIGNED_GROUPS="$(IFS=,; echo "${assigned[*]}")"
   return 0
 }
@@ -1651,6 +1828,7 @@ step_summary() {
 # Menu
 # =========================
 run_all() {
+  AUTO_INSTALL="true"  # Включаем автоматический режим (без пауз)
   run_step "1/12 Зависимости (Docker, compose)"          step_deps          || true
   run_step "2/12 Создание сети Docker"                            step_create_network|| true
   run_step "3/12 Docker login в Yandex CR (опционально)"          step_docker_login  || true
