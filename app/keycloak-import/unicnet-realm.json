@@ -480,7 +480,7 @@
       "emailVerified": true,
       "firstName": "UnicNet",
       "lastName": "Administrator",
-      "email": "unicadmin@local",
+      "email": "unicadmin@local.com",
       "credentials": [
         {
           "type": "password",
