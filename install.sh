@@ -1719,7 +1719,15 @@ step_summary() {
   echo "  Keycloak Admin:  ${kc_admin_display} / *** (из контейнера)  (${KC_URL:-http://${server_ip}:${KC_PORT:-$KC_PORT_DEFAULT}})"
   echo "  Realm:           ${REALM}"
   echo "  User:            ${NEW_USER} / ${NEW_USER_PASS}"
-  echo "  Groups:          ${ASSIGNED_GROUPS:-<не присвоены>}"
+  if [ -n "$ASSIGNED_GROUPS" ] && [ "$ASSIGNED_GROUPS" != "<не присвоены>" ] && [ "$ASSIGNED_GROUPS" != "<группы будут назначены при импорте realm>" ]; then
+    echo "  Groups:"
+    IFS=',' read -ra GROUPS_ARRAY <<< "$ASSIGNED_GROUPS"
+    for group in "${GROUPS_ARRAY[@]}"; do
+      echo "                   - ${group}"
+    done
+  else
+    echo "  Groups:          ${ASSIGNED_GROUPS:-<не присвоены>}"
+  fi
   echo "  Vault Swagger:   http://${server_ip}:8200/swagger/index.html"
   sep
 }
