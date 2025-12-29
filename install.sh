@@ -330,8 +330,14 @@ json_array_get_names() {
   else
     json="$(cat)"
   fi
-  # Извлекаем значения поля из массива объектов JSON
-  echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p"
+  
+  # Нормализуем JSON: убираем переносы строк и лишние пробелы
+  local normalized_json
+  normalized_json="$(echo "$json" | tr '\n' ' ' | sed 's/  */ /g')"
+  
+  # Используем grep с регулярным выражением для поиска всех вхождений "field":"value"
+  # Паттерн: "field": "value" или "field":"value"
+  echo "$normalized_json" | grep -o "\"${field}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | sed "s/\"${field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\"/\1/" | grep -v '^$'
 }
 
 json_array_find_id_by_name() {
@@ -1091,7 +1097,7 @@ step_import_realm() {
 }
 
 # =========================
-# Step 11: Создание пользователя и назначение 3 групп
+# Step 11: Создание пользователя и обновление пароля (группы назначаются из realm JSON)
 # =========================
 kc_get_admin_token() {
   # Получаем credentials из контейнера, если они еще не установлены
@@ -1460,12 +1466,19 @@ EOF
     warn "Не удалось обновить пароль (HTTP: ${password_update_code})"
   fi
 
-  # Если пользователь уже существовал (импортирован из realm JSON), проверяем его текущие группы
+  # Если пользователь уже существовал (импортирован из realm JSON), проверяем его текущие группы для информации
   if [ "$user_exists" = "true" ]; then
-    log "Проверяю текущие группы пользователя (возможно, уже назначены из realm JSON)"
+    log "Проверяю текущие группы пользователя (уже назначены из realm JSON)"
     local user_groups_json
     user_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups")"
+    
+    # Отладочная информация
+    if [ -z "$user_groups_json" ] || [ "$user_groups_json" = "[]" ]; then
+      info "Ответ API пуст или пустой массив"
+    else
+      info "Ответ API получен (длина: ${#user_groups_json} символов)"
+    fi
     
     local current_groups
     mapfile -t current_groups < <(json_array_get_names "$user_groups_json" "name" || true)
@@ -1473,147 +1486,34 @@ EOF
     if [ "${#current_groups[@]}" -gt 0 ]; then
       log "Пользователь уже имеет ${#current_groups[@]} групп: ${current_groups[*]}"
       ASSIGNED_GROUPS="$(IFS=,; echo "${current_groups[*]}")"
-      info "Группы пользователя уже назначены (из realm JSON), пропускаю назначение групп"
-      return 0
+      info "Группы пользователя уже назначены из realm JSON, назначение групп не требуется"
     else
-      info "Пользователь существует, но группы не назначены, назначаю группы"
-    fi
-  fi
-
-  local all_groups_json
-  all_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" "${KC_URL}/admin/realms/${REALM}/groups")"
-
-  # Отладочная информация
-  if [ -z "$all_groups_json" ] || [ "$all_groups_json" = "[]" ]; then
-    warn "Список групп пуст или не получен. Возможно, realm еще не полностью импортирован."
-    info "Попробуйте подождать несколько секунд и запустить этот шаг повторно."
-    ASSIGNED_GROUPS="<не присвоены - группы не найдены>"
-    return 0
-  fi
-
-  mapfile -t all_names < <(json_array_get_names "$all_groups_json" "name")
-  
-  if [ "${#all_names[@]}" -eq 0 ]; then
-    warn "Не удалось извлечь имена групп из JSON ответа."
-    info "Ответ API (первые 200 символов):"
-    echo "$all_groups_json" | head -c 200
-    echo
-    ASSIGNED_GROUPS="<не присвоены - группы не найдены>"
-    return 0
-  fi
-
-  info "Найдено групп в realm: ${#all_names[@]}"
-  if [ "${#all_names[@]}" -gt 0 ]; then
-    info "Доступные группы: ${all_names[*]}"
-  fi
-  
-  # Ищем конкретные группы UnicNet
-  local -a target_groups=("unicnet_admin_group" "unicnet_superuser_group" "unicnet_user_group")
-  local -a pick_names=()
-  
-  # Проверяем наличие каждой целевой группы
-  for target_group in "${target_groups[@]}"; do
-    if printf '%s\n' "${all_names[@]}" | grep -Fxq "$target_group"; then
-      pick_names+=("$target_group")
-      info "Найдена целевая группа: $target_group"
-    fi
-  done
-  
-  # Если не нашли все три целевые группы, добавляем другие группы с паттерном unicnet_*_group
-  if [ "${#pick_names[@]}" -lt 3 ]; then
-    local found_pattern_groups
-    mapfile -t found_pattern_groups < <(printf '%s\n' "${all_names[@]}" | grep -E '^unicnet_.*_group$' | grep -vFxf <(printf '%s\n' "${pick_names[@]}") || true)
-    
-    local need=$((3 - ${#pick_names[@]}))
-    if [ "${#found_pattern_groups[@]}" -gt 0 ] && [ "$need" -gt 0 ]; then
-      local add_count=$((need < ${#found_pattern_groups[@]} ? need : ${#found_pattern_groups[@]}))
-      for ((i=0; i<add_count; i++)); do
-        pick_names+=("${found_pattern_groups[$i]}")
-        info "Добавлена группа по паттерну: ${found_pattern_groups[$i]}"
-      done
-    fi
-  fi
-  
-  # Если все еще меньше 3, добавляем любые другие группы
-  if [ "${#pick_names[@]}" -lt 3 ]; then
-    local need=$((3 - ${#pick_names[@]}))
-    local other_groups
-    mapfile -t other_groups < <(printf '%s\n' "${all_names[@]}" | grep -vFxf <(printf '%s\n' "${pick_names[@]}") | head -n "$need" || true)
-    if [ "${#other_groups[@]}" -gt 0 ]; then
-      pick_names+=("${other_groups[@]}")
-      info "Добавлены дополнительные группы: ${other_groups[*]}"
-    fi
-  fi
-  
-  # Удаляем дубликаты
-  mapfile -t pick_names < <(printf '%s\n' "${pick_names[@]}" | awk 'NF{a[$0]++} END{for(k in a) print k}')
-
-  if [ "${#pick_names[@]}" -lt 1 ]; then 
-    warn "Не найдено ни одной группы для назначения."
-    info "Доступные группы: ${all_names[*]}"
-    ASSIGNED_GROUPS="<не присвоены>"
-    return 0
-  fi
-
-  info "Группы для назначения (${#pick_names[@]}): ${pick_names[*]}"
-  local assigned=()
-  local failed_groups=()
-  
-  for gname in "${pick_names[@]}"; do
-    info "Обрабатываю группу: $gname"
-    local gid
-    gid="$(json_array_find_id_by_name "$all_groups_json" "$gname" "name" "id")"
-    
-    if [ -z "$gid" ] || [ "$gid" = "null" ] || [ "$gid" = "empty" ]; then
-      warn "Группа '$gname' не найдена в основном списке (ID не извлечен)."
-      info "Попытка найти группу напрямую через API..."
-      # Попробуем найти группу через прямой поиск по имени
-      local direct_search
-      direct_search="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-        --get --data-urlencode "search=${gname}" \
-        "${KC_URL}/admin/realms/${REALM}/groups")"
-      gid="$(json_array_find_id_by_name "$direct_search" "$gname" "name" "id")"
+      warn "Не удалось извлечь группы из ответа API"
+      info "Ответ API (первые 300 символов):"
+      echo "$user_groups_json" | head -c 300
+      echo
+      info "Попробую альтернативный способ получения групп..."
+      # Попробуем получить группы через прямой запрос с path
+      local groups_by_path
+      groups_by_path="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+        "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups?briefRepresentation=false")"
       
-      if [ -z "$gid" ] || [ "$gid" = "null" ] || [ "$gid" = "empty" ]; then
-        warn "Группа '$gname' не найдена даже через прямой поиск."
-        failed_groups+=("$gname")
-        continue
+      mapfile -t current_groups < <(json_array_get_names "$groups_by_path" "name" || true)
+      
+      if [ "${#current_groups[@]}" -gt 0 ]; then
+        log "Группы найдены альтернативным способом: ${#current_groups[@]} групп: ${current_groups[*]}"
+        ASSIGNED_GROUPS="$(IFS=,; echo "${current_groups[*]}")"
       else
-        info "Группа '$gname' найдена через прямой поиск (ID: $gid)"
+        info "Пользователь существует, но группы не найдены (возможно, еще не импортированы из realm JSON)"
+        ASSIGNED_GROUPS="<группы будут назначены при импорте realm>"
       fi
-    else
-      info "Группа '$gname' найдена (ID: $gid)"
     fi
-    
-    # Добавляем пользователя в группу
-    log "Добавляю пользователя в группу: $gname (ID: $gid)"
-    local put_response
-    put_response="$(curl -s "${CURL_OPTS[@]}" -w "\nHTTP_CODE:%{http_code}" -X PUT \
-      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-      "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups/${gid}")"
-    local put_http_code
-    put_http_code="$(echo "$put_response" | grep "HTTP_CODE:" | cut -d: -f2 || echo "")"
-    
-    if [ "$put_http_code" = "204" ] || [ "$put_http_code" = "200" ]; then
-      log "✓ Пользователь успешно добавлен в группу: $gname"
-      assigned+=("$gname")
-    else
-      warn "✗ Не удалось добавить пользователя в группу '$gname' (HTTP: ${put_http_code})"
-      if [ -n "$put_response" ]; then
-        info "Ответ сервера: $(echo "$put_response" | sed '/HTTP_CODE:/d' | head -c 100)"
-      fi
-      failed_groups+=("$gname")
-    fi
-  done
-  
-  if [ "${#failed_groups[@]}" -gt 0 ]; then
-    warn "Не удалось добавить пользователя в группы: ${failed_groups[*]}"
+  else
+    # Для нового пользователя группы будут назначены при импорте realm или вручную
+    info "Пользователь создан. Группы будут назначены при импорте realm JSON или вручную через веб-интерфейс Keycloak"
+    ASSIGNED_GROUPS="<группы будут назначены при импорте realm>"
   fi
   
-  if [ "${#assigned[@]}" -gt 0 ]; then
-    log "Пользователь успешно добавлен в ${#assigned[@]} групп: ${assigned[*]}"
-  fi
-  ASSIGNED_GROUPS="$(IFS=,; echo "${assigned[*]}")"
   return 0
 }
 
@@ -1839,7 +1739,7 @@ run_all() {
   run_step "8/12 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port|| true
   run_step "9/12 Ожидание готовности Keycloak"                    step_wait_keycloak || true
   run_step "10/12 Импорт realm и получение токена"                 step_import_realm  || true
-  run_step "11/12 Создание пользователя и назначение 3 групп"     step_create_user_and_groups || true
+  run_step "11/12 Создание пользователя и обновление пароля"     step_create_user_and_groups || true
   run_step "12/12 Перезапуск Docker Compose"                      step_restart_compose || true
   step_summary
 }
@@ -1859,7 +1759,7 @@ main_menu() {
     echo "  8) Определить порт/схему Keycloak"
     echo "  9) Дождаться готовности Keycloak"
     echo " 10) Импортировать realm"
-    echo " 11) Создать пользователя и назначение 3 групп"
+    echo " 11) Создать пользователя и обновить пароль"
     echo " 12) Перезапустить Docker Compose (down и up -d)"
     echo " 13) Показать итоги/URL"
     echo " 14) Полная деинсталляция (контейнеры, тома, сеть, образы)"
@@ -1879,7 +1779,7 @@ main_menu() {
       8) run_step "Определение порта/схемы Keycloak"     step_detect_kc_port ;;
       9) run_step "Ожидание готовности Keycloak"         step_wait_keycloak ;;
       10) run_step "Импорт realm"                         step_import_realm ;;
-      11) run_step "Создание пользователя и назначение 3 групп" step_create_user_and_groups ;;
+      11) run_step "Создание пользователя и обновление пароля" step_create_user_and_groups ;;
       12) run_step "Перезапуск Docker Compose"             step_restart_compose ;;
       13) step_summary; pause ;;
       14) run_step "Полная деинсталляция" step_uninstall_full ;;
