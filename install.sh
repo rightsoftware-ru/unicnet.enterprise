@@ -52,7 +52,7 @@ KC_ADMIN="${BASE_USER_DEFAULT}"
 KC_PASS="${BASE_PASS_DEFAULT}"
 NEW_USER="unicadmin"
 NEW_USER_PASS=""
-NEW_USER_EMAIL="unicadmin@local"
+NEW_USER_EMAIL="unicadmin@local.com"
 ASSIGNED_GROUPS=""
 KC_PORT=""
 KC_URL=""
@@ -60,6 +60,7 @@ KC_SCHEME="http"
 CURL_OPTS=()
 ACCESS_TOKEN=""
 VAULT_TOKEN=""
+AUTO_INSTALL="${AUTO_INSTALL:-false}"  # Флаг автоматической установки (без пауз)
 
 # =========================
 # UI helpers
@@ -70,7 +71,11 @@ warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 err()  { echo -e "${RED}[x]${NC} $*"; }
 info() { echo -e "${BLUE}[*]${NC} $*"; }
 sep()  { echo -e "${GRAY}----------------------------------------------------------------${NC}"; }
-pause() { read -rp "Нажмите Enter, чтобы продолжить..."; }
+pause() { 
+  if [ "$AUTO_INSTALL" != "true" ]; then
+    read -rp "Нажмите Enter, чтобы продолжить..."
+  fi
+}
 
 # =========================
 # Helpers
@@ -275,7 +280,7 @@ collect_inputs() {
     # Пользователь, пароль и email устанавливаются автоматически
     NEW_USER="unicadmin"
     NEW_USER_PASS="$(rand_pass)"
-    NEW_USER_EMAIL="unicadmin@local"
+    NEW_USER_EMAIL="unicadmin@local.com"
     info "Пользователь: ${NEW_USER}"
     info "Пароль сгенерирован автоматически"
     info "Email: ${NEW_USER_EMAIL}"
@@ -295,11 +300,7 @@ collect_inputs() {
 # =========================
 # Steps
 # =========================
-# Функции для работы с JSON через jq в Docker контейнере
-_jq() {
-  docker run --rm -i stedolan/jq:latest "$@"
-}
-
+# Функции для работы с JSON через нативные bash-инструменты (sed, awk, grep)
 json_get_field() {
   local json field="$2"
   if [ $# -gt 0 ] && [ -n "$1" ]; then
@@ -307,7 +308,8 @@ json_get_field() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg field "$field" '.[$field] // empty'
+  # Используем sed для извлечения значения поля из JSON
+  echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -1
 }
 
 json_get_access_token() {
@@ -317,7 +319,8 @@ json_get_access_token() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r '.access_token // empty'
+  # Извлекаем access_token из JSON
+  echo "$json" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
 json_array_get_names() {
@@ -327,7 +330,14 @@ json_array_get_names() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg field "$field" '.[] | .[$field] // empty'
+  
+  # Нормализуем JSON: убираем переносы строк и лишние пробелы
+  local normalized_json
+  normalized_json="$(echo "$json" | tr '\n' ' ' | sed 's/  */ /g')"
+  
+  # Используем grep с регулярным выражением для поиска всех вхождений "field":"value"
+  # Паттерн: "field": "value" или "field":"value"
+  echo "$normalized_json" | grep -o "\"${field}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | sed "s/\"${field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\"/\1/" | grep -v '^$'
 }
 
 json_array_find_id_by_name() {
@@ -337,8 +347,35 @@ json_array_find_id_by_name() {
   else
     json="$(cat)"
   fi
-  echo "$json" | _jq -r --arg name "$search_name" --arg name_field "$name_field" --arg id_field "$id_field" \
-    '.[] | select(.[$name_field] == $name) | .[$id_field] // empty' | head -1
+  
+  # Нормализуем JSON: убираем переносы строк, но сохраняем структуру
+  local normalized_json
+  normalized_json="$(echo "$json" | tr '\n' ' ' | sed 's/  */ /g')"
+  
+  # Используем sed для поиска: ищем объект с нужным name и извлекаем id из того же объекта
+  # Паттерн 1: ищем "name":"search_name" и затем в пределах того же объекта ищем "id":"..."
+  local result
+  result="$(echo "$normalized_json" | sed -n "s/.*\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\"[^}]*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1)"
+  
+  # Если не нашли, пробуем обратный порядок: сначала id, потом name
+  if [ -z "$result" ]; then
+    result="$(echo "$normalized_json" | sed -n "s/.*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\"[^}]*\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\".*/\1/p" | head -1)"
+  fi
+  
+  # Если все еще не нашли, используем более сложный подход: разбиваем на объекты
+  if [ -z "$result" ]; then
+    # Разбиваем JSON массив на отдельные объекты по },{
+    echo "$normalized_json" | sed 's/\[//;s/\]//' | sed 's/},{/}\n{/g' | while IFS= read -r obj; do
+      # Проверяем, содержит ли объект нужное имя
+      if echo "$obj" | grep -q "\"${name_field}\"[[:space:]]*:[[:space:]]*\"${search_name}\""; then
+        # Извлекаем id из этого объекта
+        echo "$obj" | sed -n "s/.*\"${id_field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+        break
+      fi
+    done | head -1
+  else
+    echo "$result"
+  fi
 }
 
 wait_mongo_ready() {
@@ -643,7 +680,14 @@ step_get_vault_token() {
   
   if [ "$http_code" = "200" ]; then
     local token_extracted
-    token_extracted="$(echo "$response_body" | _jq -r '.token // .access_token // .value // . // empty' 2>/dev/null || echo "")"
+    # Пробуем извлечь токен из разных возможных полей JSON
+    token_extracted="$(echo "$response_body" | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    if [ -z "$token_extracted" ]; then
+      token_extracted="$(echo "$response_body" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    fi
+    if [ -z "$token_extracted" ]; then
+      token_extracted="$(echo "$response_body" | sed -n 's/.*"value"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    fi
     
     if [ -z "$token_extracted" ] || [ "$token_extracted" = "null" ] || [ "$token_extracted" = "empty" ]; then
       token_extracted="$(echo "$response_body" | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//;s/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '\n')"
@@ -714,7 +758,6 @@ step_create_vault_secret() {
   local backend_url="http://unicnet.backend:8080/"
   local logger_url="http://unicnet.logger:8080/"
   local syslog_url="http://unicnet.syslog:8080/"
-  local router_url="http://unicnet.router:30115/"
   local router_hostport="unicnet.router:30115"
   
   info "Используются внутренние URL (Docker сеть):"
@@ -722,7 +765,7 @@ step_create_vault_secret() {
   info "  Backend:  ${backend_url}"
   info "  Logger:   ${logger_url}"
   info "  Syslog:   ${syslog_url}"
-  info "  Router:   ${router_url}"
+  info "  Router:   ${router_hostport}"
   
   local json_payload
   json_payload=$(cat <<EOF
@@ -1054,7 +1097,7 @@ step_import_realm() {
 }
 
 # =========================
-# Step 11: Создание пользователя и назначение 3 групп
+# Step 11: Создание пользователя и обновление пароля (группы назначаются из realm JSON)
 # =========================
 kc_get_admin_token() {
   # Получаем credentials из контейнера, если они еще не установлены
@@ -1254,16 +1297,11 @@ step_create_user_and_groups() {
       info "  HTTP код: ${http_code:-unknown}"
       
       if [ "$http_code" = "200" ]; then
-        # Извлекаем токен (как в get_admin_token.sh)
-        if command -v jq >/dev/null 2>&1; then
-          token="$(echo "$response" | jq -r '.access_token // empty' 2>/dev/null || echo "")"
-        else
-          # Используем json_get_access_token как fallback
-          token="$(echo "$response" | json_get_access_token 2>/dev/null || echo "")"
-          # Если не сработало, пробуем sed
-          if [ -z "$token" ] || [ "$token" = "null" ] || [ "$token" = "empty" ]; then
-            token="$(echo "$response" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p' | head -1)"
-          fi
+        # Извлекаем токен используя нативные bash-инструменты
+        token="$(echo "$response" | json_get_access_token 2>/dev/null || echo "")"
+        # Если не сработало, пробуем sed напрямую
+        if [ -z "$token" ] || [ "$token" = "null" ] || [ "$token" = "empty" ]; then
+          token="$(echo "$response" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
         fi
         
         if [ -n "$token" ] && [ "$token" != "null" ] && [ "$token" != "empty" ]; then
@@ -1279,13 +1317,9 @@ step_create_user_and_groups() {
         if [ -n "$http_code" ] && [ "$http_code" != "200" ]; then
           if echo "$response" | grep -qiE "error|invalid|unauthorized"; then
             local error_msg
-            if command -v jq >/dev/null 2>&1; then
-              error_msg="$(echo "$response" | jq -r '.error_description // .error // empty' 2>/dev/null || echo "")"
-            else
-              error_msg="$(json_get_field "$response" "error_description" 2>/dev/null || echo "")"
-              if [ -z "$error_msg" ] || [ "$error_msg" = "null" ] || [ "$error_msg" = "empty" ]; then
-                error_msg="$(json_get_field "$response" "error" 2>/dev/null || echo "")"
-              fi
+            error_msg="$(json_get_field "$response" "error_description" 2>/dev/null || echo "")"
+            if [ -z "$error_msg" ] || [ "$error_msg" = "null" ] || [ "$error_msg" = "empty" ]; then
+              error_msg="$(json_get_field "$response" "error" 2>/dev/null || echo "")"
             fi
             if [ -n "$error_msg" ] && [ "$error_msg" != "null" ] && [ "$error_msg" != "empty" ]; then
               warn "Ошибка (HTTP ${http_code}): ${error_msg}"
@@ -1325,15 +1359,36 @@ step_create_user_and_groups() {
     return 1
   fi
 
-  log "Создаю пользователя '${NEW_USER}' в realm '${REALM}'"
-  local create_resp_headers user_id httpc
-  create_resp_headers="$(mktemp)"
+  # Сначала проверяем, существует ли пользователь (возможно, он уже импортирован из realm JSON)
+  log "Проверяю существование пользователя '${NEW_USER}' в realm '${REALM}'"
+  local user_search_response
+  user_search_response="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    --get --data-urlencode "username=${NEW_USER}" \
+    "${KC_URL}/admin/realms/${REALM}/users")"
   
-  # Создаем временный файл для JSON payload
-  local json_payload_file
-  json_payload_file="$(mktemp)"
+  local user_id
+  user_id="$(echo "$user_search_response" | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)"
   
-  cat > "${json_payload_file}" <<EOF
+  local user_exists=false
+  if [ -n "$user_id" ] && [ "$user_id" != "null" ] && [ "$user_id" != "empty" ]; then
+    user_exists=true
+    log "Пользователь '${NEW_USER}' уже существует (ID: $user_id)"
+    info "Пользователь, вероятно, был импортирован из realm JSON со всеми группами"
+    info "Обновляю только пароль пользователя"
+  else
+    log "Пользователь '${NEW_USER}' не найден, создаю нового"
+    user_exists=false
+  fi
+  
+  if [ "$user_exists" = "false" ]; then
+    # Создаем нового пользователя
+    local create_resp_headers httpc
+    create_resp_headers="$(mktemp)"
+    
+    local json_payload_file
+    json_payload_file="$(mktemp)"
+    
+    cat > "${json_payload_file}" <<EOF
 {
   "username": "${NEW_USER}",
   "email": "${NEW_USER_EMAIL}",
@@ -1346,65 +1401,119 @@ step_create_user_and_groups() {
   }]
 }
 EOF
-  
-  httpc="$(curl -s "${CURL_OPTS[@]}" -D "${create_resp_headers}" -o /dev/null -w "%{http_code}" \
-    -X POST "${KC_URL}/admin/realms/${REALM}/users" \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
-    --data-binary "@${json_payload_file}")"
-  
-  rm -f "${json_payload_file}"
+    
+    httpc="$(curl -s "${CURL_OPTS[@]}" -D "${create_resp_headers}" -o /dev/null -w "%{http_code}" \
+      -X POST "${KC_URL}/admin/realms/${REALM}/users" \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
+      --data-binary "@${json_payload_file}")"
+    
+    rm -f "${json_payload_file}"
 
-  case "$httpc" in
-    201)
-      user_id="$(awk -F'/users/' '/^Location:/ {print $2}' "${create_resp_headers}" | tr -d '\r\n')"
-      ;;
-    409|200)
-      user_id="$(
-        curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-          --get --data-urlencode "username=${NEW_USER}" \
-          "${KC_URL}/admin/realms/${REALM}/users" \
-        | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
-      )"
-      ;;
-    *)
-      err "Создание пользователя вернуло HTTP ${httpc}";;
-  esac
+    case "$httpc" in
+      201)
+        user_id="$(awk -F'/users/' '/^Location:/ {print $2}' "${create_resp_headers}" | tr -d '\r\n')"
+        log "Пользователь успешно создан (ID: $user_id)"
+        ;;
+      409)
+        # Пользователь был создан между проверкой и созданием
+        user_id="$(echo "$user_search_response" | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)"
+        if [ -z "$user_id" ]; then
+          user_id="$(
+            curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              --get --data-urlencode "username=${NEW_USER}" \
+              "${KC_URL}/admin/realms/${REALM}/users" \
+            | grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
+          )"
+        fi
+        warn "Пользователь уже существует (HTTP 409), используем существующего"
+        ;;
+      *)
+        err "Создание пользователя вернуло HTTP ${httpc}"
+        rm -f "${create_resp_headers}"
+        return 1
+        ;;
+    esac
 
-  rm -f "${create_resp_headers}"
+    rm -f "${create_resp_headers}"
+  fi
 
   if [ -z "${user_id:-}" ]; then
     err "Не удалось определить ID пользователя."; return 1
   fi
-
-  local all_groups_json
-  all_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" "${KC_URL}/admin/realms/${REALM}/groups")"
-
-  mapfile -t all_names < <(json_array_get_names "$all_groups_json" "name")
-  local -a pick_names
-  mapfile -t pick_names < <(printf '%s\n' "${all_names[@]}" | grep -E '^unicnet_.*_group$' | head -n 3 || true)
-  if [ "${#pick_names[@]}" -lt 3 ]; then
-    local need=$((3 - ${#pick_names[@]}))
-    local extra; mapfile -t extra < <(printf '%s\n' "${all_names[@]}" | head -n "$((need))")
-    pick_names+=("${extra[@]}")
+  
+  # Обновляем пароль пользователя (для существующего или нового)
+  log "Устанавливаю пароль для пользователя '${NEW_USER}'"
+  local password_payload
+  password_payload="$(cat <<EOF
+{
+  "type": "password",
+  "value": "${NEW_USER_PASS}",
+  "temporary": false
+}
+EOF
+)"
+  
+  local password_update_code
+  password_update_code="$(curl -s "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" \
+    -X PUT "${KC_URL}/admin/realms/${REALM}/users/${user_id}/reset-password" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data-raw "${password_payload}")"
+  
+  if [ "$password_update_code" = "204" ] || [ "$password_update_code" = "200" ]; then
+    log "Пароль успешно обновлен"
+  else
+    warn "Не удалось обновить пароль (HTTP: ${password_update_code})"
   fi
-  mapfile -t pick_names < <(printf '%s\n' "${pick_names[@]}" | awk 'NF{a[$0]++} END{for(k in a) print k}')
 
-  if [ "${#pick_names[@]}" -lt 1 ]; then err "Не найдено ни одной группы для назначения."; return 1; fi
-
-  local assigned=()
-  for gname in "${pick_names[@]}"; do
-    local gid
-    gid="$(json_array_find_id_by_name "$all_groups_json" "$gname" "name" "id")"
-    if [ -n "$gid" ]; then
-      log "Добавляю пользователя в группу: $gname"
-      curl -s "${CURL_OPTS[@]}" -o /dev/null -X PUT -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-        "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups/${gid}" || true
-      assigned+=("$gname")
+  # Если пользователь уже существовал (импортирован из realm JSON), проверяем его текущие группы для информации
+  if [ "$user_exists" = "true" ]; then
+    log "Проверяю текущие группы пользователя (уже назначены из realm JSON)"
+    local user_groups_json
+    user_groups_json="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups")"
+    
+    # Отладочная информация
+    if [ -z "$user_groups_json" ] || [ "$user_groups_json" = "[]" ]; then
+      info "Ответ API пуст или пустой массив"
     else
-      warn "Группа '$gname' не найдена."
+      info "Ответ API получен (длина: ${#user_groups_json} символов)"
     fi
-  done
-  ASSIGNED_GROUPS="$(IFS=,; echo "${assigned[*]}")"
+    
+    local current_groups
+    mapfile -t current_groups < <(json_array_get_names "$user_groups_json" "name" || true)
+    
+    if [ "${#current_groups[@]}" -gt 0 ]; then
+      log "Пользователь уже имеет ${#current_groups[@]} групп: ${current_groups[*]}"
+      ASSIGNED_GROUPS="$(IFS=,; echo "${current_groups[*]}")"
+      info "Группы пользователя уже назначены из realm JSON, назначение групп не требуется"
+    else
+      warn "Не удалось извлечь группы из ответа API"
+      info "Ответ API (первые 300 символов):"
+      echo "$user_groups_json" | head -c 300
+      echo
+      info "Попробую альтернативный способ получения групп..."
+      # Попробуем получить группы через прямой запрос с path
+      local groups_by_path
+      groups_by_path="$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+        "${KC_URL}/admin/realms/${REALM}/users/${user_id}/groups?briefRepresentation=false")"
+      
+      mapfile -t current_groups < <(json_array_get_names "$groups_by_path" "name" || true)
+      
+      if [ "${#current_groups[@]}" -gt 0 ]; then
+        log "Группы найдены альтернативным способом: ${#current_groups[@]} групп: ${current_groups[*]}"
+        ASSIGNED_GROUPS="$(IFS=,; echo "${current_groups[*]}")"
+      else
+        info "Пользователь существует, но группы не найдены (возможно, еще не импортированы из realm JSON)"
+        ASSIGNED_GROUPS="<группы будут назначены при импорте realm>"
+      fi
+    fi
+  else
+    # Для нового пользователя группы будут назначены при импорте realm или вручную
+    info "Пользователь создан. Группы будут назначены при импорте realm JSON или вручную через веб-интерфейс Keycloak"
+    ASSIGNED_GROUPS="<группы будут назначены при импорте realm>"
+  fi
+  
   return 0
 }
 
@@ -1448,7 +1557,7 @@ step_deps() {
   if ! _docker_compose_cmd >/dev/null 2>&1; then
     err "Docker Compose не установлен (не найдена команда docker compose или docker-compose). Установите Docker Compose вручную перед запуском скрипта."; return 1
   fi
-  log "Для работы с JSON используется jq через Docker контейнер stedolan/jq"
+  log "Для работы с JSON используются нативные bash-инструменты (sed, awk, grep)"
   log "Зависимости в порядке."; return 0
 }
 
@@ -1619,6 +1728,7 @@ step_summary() {
 # Menu
 # =========================
 run_all() {
+  AUTO_INSTALL="true"  # Включаем автоматический режим (без пауз)
   run_step "1/12 Зависимости (Docker, compose)"          step_deps          || true
   run_step "2/12 Создание сети Docker"                            step_create_network|| true
   run_step "3/12 Docker login в Yandex CR (опционально)"          step_docker_login  || true
@@ -1629,7 +1739,7 @@ run_all() {
   run_step "8/12 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port|| true
   run_step "9/12 Ожидание готовности Keycloak"                    step_wait_keycloak || true
   run_step "10/12 Импорт realm и получение токена"                 step_import_realm  || true
-  run_step "11/12 Создание пользователя и назначение 3 групп"     step_create_user_and_groups || true
+  run_step "11/12 Создание пользователя и обновление пароля"     step_create_user_and_groups || true
   run_step "12/12 Перезапуск Docker Compose"                      step_restart_compose || true
   step_summary
 }
@@ -1649,7 +1759,7 @@ main_menu() {
     echo "  8) Определить порт/схему Keycloak"
     echo "  9) Дождаться готовности Keycloak"
     echo " 10) Импортировать realm"
-    echo " 11) Создать пользователя и назначение 3 групп"
+    echo " 11) Создать пользователя и обновить пароль"
     echo " 12) Перезапустить Docker Compose (down и up -d)"
     echo " 13) Показать итоги/URL"
     echo " 14) Полная деинсталляция (контейнеры, тома, сеть, образы)"
@@ -1669,7 +1779,7 @@ main_menu() {
       8) run_step "Определение порта/схемы Keycloak"     step_detect_kc_port ;;
       9) run_step "Ожидание готовности Keycloak"         step_wait_keycloak ;;
       10) run_step "Импорт realm"                         step_import_realm ;;
-      11) run_step "Создание пользователя и назначение 3 групп" step_create_user_and_groups ;;
+      11) run_step "Создание пользователя и обновление пароля" step_create_user_and_groups ;;
       12) run_step "Перезапуск Docker Compose"             step_restart_compose ;;
       13) step_summary; pause ;;
       14) run_step "Полная деинсталляция" step_uninstall_full ;;
