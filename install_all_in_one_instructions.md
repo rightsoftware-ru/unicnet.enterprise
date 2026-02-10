@@ -81,18 +81,18 @@ export UniCommLicenseData="ваша_лицензия_здесь"
 
 ```mermaid
 graph TD
-    PG[unicnet.postgres<br/>PostgreSQL]
-    MG[unicnet.mongo<br/>MongoDB]
+    PG[unicnetpostgres<br/>PostgreSQL]
+    MG[unicnetmongo<br/>MongoDB]
     
-    KC[unicnet.keycloak<br/>Keycloak]
-    LG[unicnet.logger<br/>Logger]
-    SL[unicnet.syslog<br/>Syslog]
+    KC[unicnetkeycloak<br/>Keycloak]
+    LG[unicnetlogger<br/>Logger]
+    SL[unicnetsyslog<br/>Syslog]
     
-    VT[unicnet.vault<br/>Vault]
-    RT[unicnet.router<br/>Router]
+    VT[unicnetvault<br/>Vault]
+    RT[unicnetrouter<br/>Router]
     
-    BE[unicnet.backend<br/>Backend]
-    FE[unicnet.frontend<br/>Frontend]
+    BE[unicnetbackend<br/>Backend]
+    FE[unicnetfrontend<br/>Frontend]
     
     PG --> KC
     MG --> SL
@@ -123,25 +123,25 @@ graph TD
 
 **Уровни зависимостей:**
 
-- **Уровень 0 (Базовые сервисы):** `unicnet.postgres`, `unicnet.mongo`
-- **Уровень 1:** `unicnet.keycloak` → postgres
-- **Уровень 2:** `unicnet.vault` → mongo; `unicnet.router` → (нет зависимостей)
-- **Уровень 3:** `unicnet.syslog` → mongo, vault
-- **Уровень 4:** `unicnet.backend` → vault, router, syslog
-- **Уровень 5:** `unicnet.frontend` → backend, keycloak
-- **Уровень 6:** `unicnet.logger` → mongo, vault, syslog, backend, frontend
+- **Уровень 0 (Базовые сервисы):** `unicnetpostgres`, `unicnetmongo`
+- **Уровень 1:** `unicnetkeycloak` → postgres
+- **Уровень 2:** `unicnetvault` → mongo; `unicnetrouter` → (нет зависимостей)
+- **Уровень 3:** `unicnetsyslog` → mongo, vault
+- **Уровень 4:** `unicnetbackend` → vault, router, syslog
+- **Уровень 5:** `unicnetfrontend` → backend, keycloak
+- **Уровень 6:** `unicnetlogger` → mongo, vault, syslog, backend, frontend
 
 **Порядок запуска сервисов:**
 
-1. `unicnet.postgres` (PostgreSQL)
-2. `unicnet.mongo` (MongoDB)
-3. `unicnet.keycloak` (после postgres)
-4. `unicnet.vault` (после mongo)
-5. `unicnet.syslog` (после mongo и vault)
-6. `unicnet.router` (независимый сервис)
-7. `unicnet.backend` (после vault, router и syslog)
-8. `unicnet.frontend` (после backend и keycloak)
-9. `unicnet.logger` (после mongo, vault, syslog, backend и frontend)
+1. `unicnetpostgres` (PostgreSQL)
+2. `unicnetmongo` (MongoDB)
+3. `unicnetkeycloak` (после postgres)
+4. `unicnetvault` (после mongo)
+5. `unicnetsyslog` (после mongo и vault)
+6. `unicnetrouter` (независимый сервис)
+7. `unicnetbackend` (после vault, router и syslog)
+8. `unicnetfrontend` (после backend и keycloak)
+9. `unicnetlogger` (после mongo, vault, syslog, backend и frontend)
 
 > **Примечание**: Docker Compose автоматически учитывает зависимости через `depends_on` и запускает сервисы в правильном порядке.
 
@@ -402,7 +402,7 @@ docker-compose -f docker-compose.yml up -d
 #### 1. Создание пользователя для UnicNet
 
 ```bash
-docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
 db = db.getSiblingDB('${MONGO_UNICNET_DB}');
 db.createUser({
   user: '${MONGO_UNICNET_USER}',
@@ -415,7 +415,7 @@ db.createUser({
 #### 2. Создание пользователя для Logger
 
 ```bash
-docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
 db = db.getSiblingDB('${MONGO_LOGGER_DB}');
 db.createUser({
   user: '${MONGO_LOGGER_USER}',
@@ -428,7 +428,7 @@ db.createUser({
 #### 3. Создание пользователя для Vault
 
 ```bash
-docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
+docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "
 db = db.getSiblingDB('${MONGO_VAULT_DB}');
 db.createUser({
   user: '${MONGO_VAULT_USER}',
@@ -480,15 +480,15 @@ curl -X POST "http://localhost:8200/api/Secrets" \
     "type": "Password",
     "data": "Empty",
     "metadata": {
-      "api.keycloak.url": "http://unicnet.keycloak:8080/",
+      "api.keycloak.url": "http://unicnetkeycloak:8080/",
       "api.license.url": "http://unicnet.license",
-      "api.backend.url": "http://unicnet.backend:8080/",
-      "api.logger.url": "http://unicnet.logger:8080/",
-      "api.syslog.url": "http://unicnet.syslog:8080/",
+      "api.backend.url": "http://unicnetbackend:8080/",
+      "api.logger.url": "http://unicnetlogger:8080/",
+      "api.syslog.url": "http://unicnetsyslog:8080/",
       "KeyCloak.AdmUn": "скопируйте_значение_из_KEYCLOAK_ADMIN_USER",
       "KeyCloak.AdmPw": "скопируйте_значение_из_KEYCLOAK_ADMIN_PASSWORD",
       "KeyCloak.Realm": "unicnet",
-      "RouterHotSpot": "unicnet.router:30115"
+      "RouterHotSpot": "unicnetrouter:30115"
     },
     "tags": [],
     "expiresAt": "2050-12-31T23:59:59.999Z"
@@ -524,7 +524,7 @@ curl http://localhost:8095/health/ready
 
    Или прочитайте credentials из контейнера:
    ```bash
-   docker inspect unicnet.keycloak | grep -E "KEYCLOAK_ADMIN_USER|KEYCLOAK_ADMIN_PASSWORD"
+   docker inspect unicnetkeycloak | grep -E "KEYCLOAK_ADMIN_USER|KEYCLOAK_ADMIN_PASSWORD"
    ```
 
 3. В веб-интерфейсе Keycloak:
@@ -665,7 +665,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    
    ```bash
    # Подключиться к контейнеру PostgreSQL
-   docker exec -it unicnet.postgres /bin/bash
+   docker exec -it unicnetpostgres /bin/bash
    ```
    
    Или выполнить команду напрямую без входа в контейнер:
@@ -673,7 +673,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    ```bash
    # Подключиться к базе данных PostgreSQL напрямую
    # Используйте переменные из export_variables.txt
-   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres
+   docker exec -it unicnetpostgres psql -U ${POSTGRES_USER:-unicnet} -d postgres
    ```
    
    **Просмотр всех баз данных:**
@@ -683,7 +683,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l"
    
    # Или напрямую из терминала
-   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l"
+   docker exec -it unicnetpostgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l"
    ```
    
    В интерактивном режиме psql используйте команду:
@@ -696,7 +696,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    
    ```bash
    # Создать базу данных из терминала
-   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-unicnetdb};"
+   docker exec -it unicnetpostgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "CREATE DATABASE ${POSTGRES_DB:-unicnetdb};"
    ```
    
    Или в интерактивном режиме psql:
@@ -709,7 +709,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    
    ```bash
    # Проверить, существует ли база данных
-   docker exec -it unicnet.postgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l" | grep ${POSTGRES_DB:-unicnetdb}
+   docker exec -it unicnetpostgres psql -U ${POSTGRES_USER:-unicnet} -d postgres -c "\l" | grep ${POSTGRES_DB:-unicnetdb}
    ```
    
    **Полезные команды psql:**
@@ -756,25 +756,25 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 
    ```bash
    # Логи конкретного контейнера
-   docker logs unicnet.backend
-   docker logs unicnet.frontend
-   docker logs unicnet.logger
-   docker logs unicnet.vault
-   docker logs unicnet.syslog
-   docker logs unicnet.router
-   docker logs unicnet.postgres
-   docker logs unicnet.mongo
-   docker logs unicnet.keycloak
+   docker logs unicnetbackend
+   docker logs unicnetfrontend
+   docker logs unicnetlogger
+   docker logs unicnetvault
+   docker logs unicnetsyslog
+   docker logs unicnetrouter
+   docker logs unicnetpostgres
+   docker logs unicnetmongo
+   docker logs unicnetkeycloak
    
    # Логи с отслеживанием в реальном времени (follow)
-   docker logs -f unicnet.backend
-   docker logs -f unicnet.frontend
+   docker logs -f unicnetbackend
+   docker logs -f unicnetfrontend
    
    # Последние N строк логов
-   docker logs --tail 100 unicnet.backend
+   docker logs --tail 100 unicnetbackend
    
    # Логи за последний час
-   docker logs --since 1h unicnet.backend
+   docker logs --since 1h unicnetbackend
    
    # Логи всех контейнеров unicnet
    docker ps --filter "name=unicnet" --format "{{.Names}}" | xargs -I {} sh -c 'echo "=== {} ===" && docker logs --tail 50 {}'
@@ -784,31 +784,31 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 
    ```bash
    # Все переменные окружения конкретного контейнера
-   docker exec unicnet.backend env
-   docker exec unicnet.frontend env
-   docker exec unicnet.logger env
-   docker exec unicnet.vault env
-   docker exec unicnet.syslog env
-   docker exec unicnet.router env
+   docker exec unicnetbackend env
+   docker exec unicnetfrontend env
+   docker exec unicnetlogger env
+   docker exec unicnetvault env
+   docker exec unicnetsyslog env
+   docker exec unicnetrouter env
    
    # Отсортированные переменные окружения
-   docker exec unicnet.backend env | sort
+   docker exec unicnetbackend env | sort
    
    # Только переменные, связанные с лицензией
-   docker exec unicnet.backend env | grep -i license
+   docker exec unicnetbackend env | grep -i license
    
    # Все переменные всех контейнеров unicnet
    docker ps --filter "name=unicnet" --format "{{.Names}}" | xargs -I {} sh -c 'echo "=== {} ===" && docker exec {} env | sort'
    
    # Конкретная переменная из контейнера
-   docker exec unicnet.backend sh -c 'echo $UniCommLicenseData'
+   docker exec unicnetbackend sh -c 'echo $UniCommLicenseData'
    ```
 
 6. **Проблемы с секретом в Vault**. Если у вас проблемы с секретом в Vault (например, секрет не создается или не читается), попробуйте удалить коллекцию в MongoDB:
 
    ```bash
    # Подключитесь к MongoDB контейнеру от пользователя vault_user
-   docker exec -it unicnet.mongo mongo vault_db -u ${MONGO_VAULT_USER:-vault_user} -p ${MONGO_VAULT_PASSWORD:-vault_pass_123} --authenticationDatabase vault_db
+   docker exec -it unicnetmongo mongo vault_db -u ${MONGO_VAULT_USER:-vault_user} -p ${MONGO_VAULT_PASSWORD:-vault_pass_123} --authenticationDatabase vault_db
    
    # Просмотрите все коллекции
    show collections
@@ -823,7 +823,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    После удаления коллекции перезапустите контейнер Vault:
 
    ```bash
-   docker restart unicnet.vault
+   docker restart unicnetvault
    ```
 
    Затем создайте секрет заново (см. шаг 8 в разделе "Ручная установка").
@@ -832,7 +832,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 
    ```bash
    # Подключитесь к MongoDB контейнеру
-   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD}
+   docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD}
    
    # Просмотрите всех пользователей во всех базах данных
    db.getUsers()
@@ -863,13 +863,13 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
 
    ```bash
    # Пользователи базы данных unicnet_db
-   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('unicnet_db').getUsers()"
+   docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('unicnet_db').getUsers()"
    
    # Пользователи базы данных logger_db
-   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('logger_db').getUsers()"
+   docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('logger_db').getUsers()"
    
    # Пользователи базы данных vault_db
-   docker exec -it unicnet.mongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('vault_db').getUsers()"
+   docker exec -it unicnetmongo mongo admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --eval "db.getSiblingDB('vault_db').getUsers()"
    ```
 
 
