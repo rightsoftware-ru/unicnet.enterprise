@@ -97,8 +97,8 @@ _docker_compose_cmd() {
 docker_compose() {
   local cmd exit_code
   cmd="$(_docker_compose_cmd)" || { err "Не найдена команда docker compose или docker-compose"; return 1; }
-  # Подавляем предупреждения о 'deploy' configuration
-  $cmd "$@" 2>&1 | grep -v "be ignored. Compose does not support 'deploy' configuration" || true
+  # Подавляем предупреждения (deploy, version obsolete и др.)
+  $cmd "$@" 2>&1 | grep -vE "be ignored|obsolete|please remove it to avoid" || true
   exit_code=${PIPESTATUS[0]}
   return $exit_code
 }
@@ -185,19 +185,20 @@ http_ok() {
   case "$code" in 2*|3*) return 0 ;; *) return 1 ;; esac
 }
 
+# Ожидание готовности Keycloak. tries=0 — бесконечный цикл до успеха
 wait_kc_ready() {
-  local base="$1" tries="${2:-60}" sleep_s="${3:-5}"
+  local base="$1" tries="${2:-0}" sleep_s="${3:-5}"
   local urls=(
+    "$base/realms/master"
+    "$base/realms/master/.well-known/openid-configuration"
     "$base/health/ready"
     "$base/q/health/ready"
-    "$base/realms/master/.well-known/openid-configuration"
-    "$base/realms/master"
     "$base/"
   )
   local i=0
   local dots=""
-  while (( i < tries )); do
-    for u in "${urls[@]}"; do 
+  while true; do
+    for u in "${urls[@]}"; do
       if http_ok "$u"; then
         if [ -n "$dots" ]; then
           echo -ne "\r${GREEN}✓${NC} Keycloak готов!${dots//./ }"
@@ -207,30 +208,36 @@ wait_kc_ready() {
       fi
     done
     dots="${dots}."
-    local progress=$((i * 100 / tries))
-    echo -ne "\r${BLUE}[*]${NC} Ожидание готовности Keycloak... ${progress}% ${dots}"
+    if (( tries > 0 )); then
+      local progress=$((i * 100 / tries))
+      echo -ne "\r${BLUE}[*]${NC} Ожидание готовности Keycloak... ${progress}% ${dots}"
+      if (( i >= tries )); then
+        echo -ne "\r"
+        echo
+        err "Keycloak не стал доступен за отведенное время"
+        echo "Диагностика Keycloak readiness (HTTP коды):"
+        for u in "${urls[@]}"; do
+          local c; c="$(curl_http_code "$u" || echo 000)"
+          case "$c" in
+            2*|3*) echo -e "  ${GREEN}✓${NC} $u -> $c" ;;
+            *)     echo -e "  ${RED}✗${NC} $u -> $c" ;;
+          esac
+        done
+        return 1
+      fi
+    else
+      echo -ne "\r${BLUE}[*]${NC} Ожидание готовности Keycloak... попытка ${i} ${dots}"
+    fi
     sleep "$sleep_s"
     i=$((i+1))
   done
-  echo -ne "\r"
-  echo
-  err "Keycloak не стал доступен за отведенное время"
-  echo "Диагностика Keycloak readiness (HTTP коды):"
-  for u in "${urls[@]}"; do
-    local c; c="$(curl_http_code "$u" || echo 000)"
-    case "$c" in
-      2*|3*) echo -e "  ${GREEN}✓${NC} $u -> $c" ;;
-      *)     echo -e "  ${RED}✗${NC} $u -> $c" ;;
-    esac
-  done
-  return 1
 }
 
 # KC helpers
 # Читает переменные окружения Keycloak из контейнера
 # Поддерживает альтернативные имена переменных
 _get_kc_env() {
-  local container_name="unicnet.keycloak"
+  local container_name="unicnetkeycloak"
   local var_name="$1" default="$2"
   
   if docker ps --format '{{.Names}}' | grep -q "^${container_name}$" 2>/dev/null; then
@@ -379,7 +386,7 @@ json_array_find_id_by_name() {
 }
 
 wait_mongo_ready() {
-  local container_name="${1:-unicnet.mongo}" tries="${2:-30}" sleep_s="${3:-2}"
+  local container_name="${1:-unicnetmongo}" tries="${2:-30}" sleep_s="${3:-2}"
   local i=0
   while (( i < tries )); do
     # Пробуем простую проверку ping без аутентификации
@@ -401,7 +408,7 @@ wait_mongo_ready() {
 # Step 5: Создание пользователей и БД в MongoDB
 # =========================
 step_create_mongo_users_and_dbs() {
-  local container_name="unicnet.mongo"
+  local container_name="unicnetmongo"
   
   # Проверяем что контейнер запущен
   if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
@@ -450,9 +457,9 @@ step_create_mongo_users_and_dbs() {
   MONGO_ROOT_USER="$(get_container_env "${container_name}" MONGO_INITDB_ROOT_USERNAME unicnet)"
   MONGO_ROOT_PASS="$(get_container_env "${container_name}" MONGO_INITDB_ROOT_PASSWORD mongo123)"
   
-  # Читаем параметры для unicnet_db из контейнера unicnet.backend (или unicnet.syslog)
+  # Читаем параметры для unicnet_db из контейнера unicnetbackend (или unicnetsyslog)
   local unicnet_mongocs
-  unicnet_mongocs="$(get_container_env "unicnet.backend" MongoCS "" 2>/dev/null || get_container_env "unicnet.syslog" MongoCS "" 2>/dev/null || echo "")"
+  unicnet_mongocs="$(get_container_env "unicnetbackend" MongoCS "" 2>/dev/null || get_container_env "unicnetsyslog" MongoCS "" 2>/dev/null || echo "")"
   local MONGO_UNICNET_USER MONGO_UNICNET_PASS MONGO_UNICNET_DB
   if [ -n "$unicnet_mongocs" ]; then
     MONGO_UNICNET_USER="$(parse_mongocs "$unicnet_mongocs" user)"
@@ -464,9 +471,9 @@ step_create_mongo_users_and_dbs() {
   MONGO_UNICNET_PASS="${MONGO_UNICNET_PASS:-unicnet_pass_123}"
   MONGO_UNICNET_DB="${MONGO_UNICNET_DB:-unicnet_db}"
   
-  # Читаем параметры для logger_db из контейнера unicnet.logger
+  # Читаем параметры для logger_db из контейнера unicnetlogger
   local logger_mongocs
-  logger_mongocs="$(get_container_env "unicnet.logger" MongoCS "" 2>/dev/null || echo "")"
+  logger_mongocs="$(get_container_env "unicnetlogger" MongoCS "" 2>/dev/null || echo "")"
   local MONGO_LOGGER_USER MONGO_LOGGER_PASS MONGO_LOGGER_DB
   if [ -n "$logger_mongocs" ]; then
     MONGO_LOGGER_USER="$(parse_mongocs "$logger_mongocs" user)"
@@ -477,9 +484,9 @@ step_create_mongo_users_and_dbs() {
   MONGO_LOGGER_PASS="${MONGO_LOGGER_PASS:-logger_pass_123}"
   MONGO_LOGGER_DB="${MONGO_LOGGER_DB:-logger_db}"
   
-  # Читаем параметры для vault_db из контейнера unicnet.vault
+  # Читаем параметры для vault_db из контейнера unicnetvault
   local vault_mongocs
-  vault_mongocs="$(get_container_env "unicnet.vault" MongoCS "" 2>/dev/null || echo "")"
+  vault_mongocs="$(get_container_env "unicnetvault" MongoCS "" 2>/dev/null || echo "")"
   local MONGO_VAULT_USER MONGO_VAULT_PASS MONGO_VAULT_DB
   if [ -n "$vault_mongocs" ]; then
     MONGO_VAULT_USER="$(parse_mongocs "$vault_mongocs" user)"
@@ -608,7 +615,7 @@ EOF
 # Step 6: Получение токена Vault
 # =========================
 step_get_vault_token() {
-  local container_name="unicnet.vault"
+  local container_name="unicnetvault"
   local vault_token_id="0f8e160416b94225a73f86ac23b9118b"
   local vault_username="UNFrontV2"
   
@@ -724,7 +731,7 @@ step_get_vault_token() {
 # Step 7: Создание секрета в Vault
 # =========================
 step_create_vault_secret() {
-  local container_name="unicnet.vault"
+  local container_name="unicnetvault"
   local vault_secret_id="UNFrontV2"
   
   # Проверяем, что контейнер запущен
@@ -754,11 +761,11 @@ step_create_vault_secret() {
   info "  Realm: ${kc_realm}"
   
   # Формируем URL с внутренними именами сервисов и портами Docker сети
-  local keycloak_url="http://unicnet.keycloak:8080/"
-  local backend_url="http://unicnet.backend:8080/"
-  local logger_url="http://unicnet.logger:8080/"
-  local syslog_url="http://unicnet.syslog:8080/"
-  local router_hostport="unicnet.router:30115"
+  local keycloak_url="http://unicnetkeycloak:8080/"
+  local backend_url="http://unicnetbackend:8080/"
+  local logger_url="http://unicnetlogger:8080/"
+  local syslog_url="http://unicnetsyslog:8080/"
+  local router_hostport="unicnetrouter:30115"
   
   info "Используются внутренние URL (Docker сеть):"
   info "  Keycloak: ${keycloak_url}"
@@ -886,7 +893,7 @@ step_detect_kc_port() {
     else
       # Пробуем получить IP хоста из контейнера
       local host_ip
-      host_ip="$(docker exec unicnet.keycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
+      host_ip="$(docker exec unicnetkeycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
       if [ -n "$host_ip" ]; then
         server_ip="$host_ip"
       fi
@@ -924,11 +931,8 @@ step_detect_kc_port() {
 # =========================
 step_wait_keycloak() {
   [ -n "${KC_URL:-}" ] || step_detect_kc_port
-  log "Ожидание готовности Keycloak на ${KC_URL}"
-  wait_kc_ready "${KC_URL}" 60 5 || { 
-    err "Keycloak не поднялся на ${KC_URL} по ожидаемым эндпоинтам"
-    return 1
-  }
+  log "Ожидание готовности Keycloak на ${KC_URL} (цикл до успеха)"
+  wait_kc_ready "${KC_URL}" 0 5
   return 0
 }
 
@@ -939,12 +943,17 @@ step_import_realm() {
   local realm_src; realm_src="$(realm_src_abs)"
   [ -f "$realm_src" ] || { err "Не найден ${realm_src}"; return 1; }
   
-  local container_name="unicnet.keycloak"
+  local container_name="unicnetkeycloak"
   
   if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
     err "Контейнер Keycloak ${container_name} не запущен"
     return 1
   fi
+  
+  # Ждём готовности Keycloak (как в шаге 9) перед импортом
+  [ -n "${KC_URL:-}" ] || step_detect_kc_port
+  log "Ожидание готовности Keycloak перед импортом realm (цикл до успеха)..."
+  wait_kc_ready "${KC_URL}" 0 5
   
   # JSON файл уже содержит внутренние адреса контейнеров, копируем напрямую
   local JSON_REALM
@@ -984,7 +993,7 @@ step_import_realm() {
   
   if [ -z "$realm_file_path" ]; then
     warn "Файл не найден в контейнере по ожидаемым путям."
-    warn "Попробуйте перезапустить контейнер: docker compose -f $(compose_file_abs) restart unicnet.keycloak"
+    warn "Попробуйте перезапустить контейнер: docker compose -f $(compose_file_abs) restart unicnetkeycloak"
     warn "Или используйте REST API для импорта."
     
     [ -n "${KC_URL:-}" ] || step_detect_kc_port
@@ -1218,7 +1227,7 @@ kc_get_admin_token() {
 }
 
 step_create_user_and_groups() {
-  local container_name="unicnet.keycloak"
+  local container_name="unicnetkeycloak"
   
   # Проверяем, что контейнер запущен
   if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$" 2>/dev/null; then
@@ -1705,7 +1714,7 @@ step_summary() {
     else
       # Пробуем получить IP хоста из контейнера
       local host_ip
-      host_ip="$(docker exec unicnet.keycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
+      host_ip="$(docker exec unicnetkeycloak sh -c 'ip route | grep default | awk '\''{print $3}'\'' || echo ""' 2>/dev/null | head -1 || echo "")"
       if [ -n "$host_ip" ]; then
         server_ip="$host_ip"
       fi
