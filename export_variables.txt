@@ -33,14 +33,17 @@ export MONGO_VAULT_PASSWORD=vault_pass_123
 export KEYCLOAK_ADMIN_USER=unicnet
 export KEYCLOAK_ADMIN_PASSWORD=admin123
 
-# Лицензия (используется всеми сервисами)
+# Лицензия (используется всеми сервисами). Замените на реальное значение перед запуском
 export UniCommLicenseData=default_license_data
 
+# Router (unicnet.router). RouterCidr: как узнать на сервере — ip addr или ip route
+export RouterCidr=
 # ============================================
 # Как удалить переменные окружения
 # ============================================
 # Для удаления переменной окружения используйте команду unset:
 # 
+# unset  RouterCidr
 # unset POSTGRES_DB
 # unset POSTGRES_USER
 # unset POSTGRES_PASSWORD
@@ -61,7 +64,8 @@ export UniCommLicenseData=default_license_data
 # unset UniCommLicenseData
 #
 # Или удалите все переменные одной командой:
-# unset POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD \
+# unset RouterCidr \
+#       POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD \
 #       MONGO_INITDB_ROOT_USERNAME MONGO_INITDB_ROOT_PASSWORD MONGO_INITDB_DATABASE \
 #       MONGO_UNICNET_DB MONGO_UNICNET_USER MONGO_UNICNET_PASSWORD \
 #       MONGO_LOGGER_DB MONGO_LOGGER_USER MONGO_LOGGER_PASSWORD \
