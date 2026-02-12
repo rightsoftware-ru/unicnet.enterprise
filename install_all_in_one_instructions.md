@@ -198,6 +198,7 @@ graph TD
       > - `MONGO_VAULT_PASSWORD` - пароль для пользователя Vault в MongoDB
       > - `KEYCLOAK_ADMIN_PASSWORD` - пароль администратора Keycloak
       > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** замените `default_license_data` на вашу реальную лицензию
+      > - `RouterCidr` - **ОБЯЗАТЕЛЬНО** замените  на ваш реальный CIDR
 
    2. **Примените переменные окружения** из отредактированного файла:
 
