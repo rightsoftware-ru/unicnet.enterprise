@@ -244,7 +244,7 @@ graph TD
 1. **Клонировать этот репозиторий**
 2. **Установить зависимости** (Docker, Docker Compose)
 3. **Создать сеть Docker**
-4. **Docker login в Yandex CR** (опционально)
+4. **Docker login в Yandex CR** 
 5. **Запустить Docker Compose**
 6. **Создать пользователей и БД в MongoDB**
 7. **Получить токен Vault**
