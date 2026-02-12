@@ -1645,9 +1645,9 @@ step_compose_up() {
   
   # prefer --wait when available
   if docker_compose version >/dev/null 2>&1 && docker_compose --help 2>/dev/null | grep -q -- '--wait'; then
-    docker_compose -f "$cf" up -d --wait || return 1
+     docker_compose -f "$cf" pull && docker_compose -f "$cf" up -d --wait || return 1
   else
-    docker_compose -f "$cf" up -d || return 1
+        docker_compose -f "$cf" pull && docker_compose -f "$cf" up -d || return 1
   fi
   echo; docker_compose -f "$cf" ps || true
   return 0
