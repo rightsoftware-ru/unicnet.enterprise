@@ -197,7 +197,7 @@ graph TD
       > - `MONGO_LOGGER_PASSWORD` - пароль для пользователя Logger в MongoDB
       > - `MONGO_VAULT_PASSWORD` - пароль для пользователя Vault в MongoDB
       > - `KEYCLOAK_ADMIN_PASSWORD` - пароль администратора Keycloak
-      > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** замените `default_license_data` на вашу реальную лицензию
+      > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО**  напишите реальную лицензию
       > - `RouterCidr` - **ОБЯЗАТЕЛЬНО** замените  на ваш реальный CIDR
 
    2. **Примените переменные окружения** из отредактированного файла:
@@ -218,7 +218,7 @@ graph TD
       echo $UniCommLicenseData
       ```
 
-      > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, а не `default_license_data`, и экспортирована перед запуском скрипта установки.
+      > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, и экспортирована перед запуском скрипта установки.
 
 4. **Запустите скрипт**:
 
@@ -332,7 +332,7 @@ cr.yandex
    > - `MONGO_LOGGER_PASSWORD` - пароль для пользователя Logger в MongoDB
    > - `MONGO_VAULT_PASSWORD` - пароль для пользователя Vault в MongoDB
    > - `KEYCLOAK_ADMIN_PASSWORD` - пароль администратора Keycloak
-   > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** замените `default_license_data` на вашу реальную лицензию
+   > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** напишите на вашу реальную лицензию
    > - `RouterCidr` - **ОБЯЗАТЕЛЬНО** замените  на ваш реальный CIDR
 
 2. **Примените переменные окружения** из отредактированного файла:
@@ -353,7 +353,7 @@ cr.yandex
    echo $UniCommLicenseData
    ```
 
-   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, а не `default_license_data`, и экспортирована перед запуском `docker-compose up`.
+   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, и экспортирована перед запуском `docker-compose up`.
 
 #### Запуск контейнеров
 
