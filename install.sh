@@ -185,6 +185,58 @@ http_ok() {
   case "$code" in 2*|3*) return 0 ;; *) return 1 ;; esac
 }
 
+# =========================
+# Проверка переменных окружения (из export_variables.txt)
+# Docker Compose берёт переменные из окружения. Перед запуском: source export_variables.txt
+# =========================
+validate_required_env() {
+  local missing=() var_name
+  local required_vars=(
+    POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
+    MONGO_INITDB_ROOT_USERNAME MONGO_INITDB_ROOT_PASSWORD MONGO_INITDB_DATABASE
+    MONGO_UNICNET_DB MONGO_UNICNET_USER MONGO_UNICNET_PASSWORD
+    MONGO_LOGGER_DB MONGO_LOGGER_USER MONGO_LOGGER_PASSWORD
+    MONGO_VAULT_DB MONGO_VAULT_USER MONGO_VAULT_PASSWORD
+    KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD
+    UniCommLicenseData
+    RouterCidr
+  )
+  for var_name in "${required_vars[@]}"; do
+    if [ -z "${!var_name:-}" ]; then
+      missing+=("$var_name")
+    fi
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    err "Не заданы обязательные переменные окружения (см. export_variables.txt):"
+    for var_name in "${missing[@]}"; do
+      echo "  - $var_name"
+    done
+    echo
+    info "Выполните в этой оболочке: source export_variables.txt (после редактирования файла)"
+    info "RouterCidr: CIDR сети (узнать на сервере: ip addr или ip route)"
+    return 1
+  fi
+  log "Все обязательные переменные окружения заданы."
+  echo
+  info "Текущие значения переменных:"
+  for var_name in "${required_vars[@]}"; do
+    local val="${!var_name:-}"
+    case "$var_name" in
+      *PASSWORD*|*PASS*|UniCommLicenseData)
+        if [ -n "$val" ]; then
+          echo "  $var_name=*** (длина ${#val})"
+        else
+          echo "  $var_name="
+        fi
+        ;;
+      *)
+        echo "  $var_name=$val"
+        ;;
+    esac
+  done
+  return 0
+}
+
 # Ожидание готовности Keycloak. tries=0 — бесконечный цикл до успеха
 wait_kc_ready() {
   local base="$1" tries="${2:-0}" sleep_s="${3:-5}"
@@ -297,8 +349,8 @@ collect_inputs() {
     echo
     info "Репозиторий: $REPO_URL"
     info "Каталог:     $REPO_PATH"
-    info "Compose:      $(compose_file_abs)"
-    info "ENV файл:     $(env_file_abs)"
+    info "Compose:     $(compose_file_abs)"
+    info "Переменные:  source export_variables.txt перед запуском"
     info "JSON realm использует внутренние адреса контейнеров (не требуется запрос IP)"
     write_config; log "Параметры сохранены в $CONFIG_FILE (права 600)."
   fi
@@ -1588,29 +1640,8 @@ step_docker_login() {
 
 step_compose_up() {
   local cf; cf="$(compose_file_abs)"
-  
-  # Загружаем переменные окружения из .env файла, если он существует
-  local envf; envf="$(env_file_abs)"
-  if [ -f "$envf" ]; then
-    log "Загружаю переменные окружения из ${envf}"
-    set -a  # автоматически экспортировать все переменные
-    # shellcheck disable=SC1090
-    . "$envf"
-    set +a
-  fi
-  
-  # Убеждаемся, что критические переменные MongoDB экспортированы
-  export MONGO_INITDB_DATABASE="${MONGO_INITDB_DATABASE:-unicnet_db}"
-  export MONGO_UNICNET_DB="${MONGO_UNICNET_DB:-${MONGO_INITDB_DATABASE:-unicnet_db}}"
-  export MONGO_UNICNET_USER="${MONGO_UNICNET_USER:-unicnet}"
-  export MONGO_UNICNET_PASSWORD="${MONGO_UNICNET_PASSWORD:-unicnet_pass_123}"
-  export MONGO_LOGGER_DB="${MONGO_LOGGER_DB:-logger_db}"
-  export MONGO_LOGGER_USER="${MONGO_LOGGER_USER:-logger_user}"
-  export MONGO_LOGGER_PASSWORD="${MONGO_LOGGER_PASSWORD:-logger_pass_123}"
-  export MONGO_VAULT_DB="${MONGO_VAULT_DB:-vault_db}"
-  export MONGO_VAULT_USER="${MONGO_VAULT_USER:-vault_user}"
-  export MONGO_VAULT_PASSWORD="${MONGO_VAULT_PASSWORD:-vault_pass_123}"
-  
+  validate_required_env || return 1
+
   # Проверяем наличие realm JSON в директории keycloak-import (bind mount)
   log "Проверяю наличие realm JSON в директории keycloak-import"
   local realm_src; realm_src="$(realm_src_abs)"
@@ -1746,18 +1777,19 @@ step_summary() {
 # =========================
 run_all() {
   AUTO_INSTALL="true"  # Включаем автоматический режим (без пауз)
-  run_step "1/12 Зависимости (Docker, compose)"          step_deps          || true
-  run_step "2/12 Создание сети Docker"                            step_create_network|| true
-  run_step "3/12 Docker login в Yandex CR (опционально)"          step_docker_login  || true
-  run_step "4/12 Запуск Docker Compose"                           step_compose_up    || true
-  run_step "5/12 Создание пользователей и БД в MongoDB"           step_create_mongo_users_and_dbs || true
-  run_step "6/12 Получение токена Vault"                         step_get_vault_token || true
-  run_step "7/12 Создание секрета в Vault"                       step_create_vault_secret || true
-  run_step "8/12 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port|| true
-  run_step "9/12 Ожидание готовности Keycloak"                    step_wait_keycloak || true
-  run_step "10/12 Импорт realm и получение токена"                 step_import_realm  || true
-  run_step "11/12 Создание пользователя и обновление пароля"     step_create_user_and_groups || true
-  run_step "12/12 Перезапуск Docker Compose"                      step_restart_compose || true
+  run_step "1/13 Зависимости (Docker, compose)"                  step_deps          || true
+  run_step "2/13 Создание сети Docker"                            step_create_network || true
+  run_step "3/13 Проверка переменных окружения"                  validate_required_env || exit 1
+  run_step "4/13 Docker login в Yandex CR (опционально)"          step_docker_login  || true
+  run_step "5/13 Запуск Docker Compose"                           step_compose_up    || true
+  run_step "6/13 Создание пользователей и БД в MongoDB"           step_create_mongo_users_and_dbs || true
+  run_step "7/13 Получение токена Vault"                         step_get_vault_token || true
+  run_step "8/13 Создание секрета в Vault"                       step_create_vault_secret || true
+  run_step "9/13 Определение схемы/порта Keycloak (http/https)"   step_detect_kc_port || true
+  run_step "10/13 Ожидание готовности Keycloak"                   step_wait_keycloak || true
+  run_step "11/13 Импорт realm и получение токена"                step_import_realm  || true
+  run_step "12/13 Создание пользователя и обновление пароля"     step_create_user_and_groups || true
+  run_step "13/13 Перезапуск Docker Compose"                     step_restart_compose || true
   step_summary
 }
 
@@ -1768,19 +1800,20 @@ main_menu() {
     echo "  0) Выполнить всё по порядку"
     echo "  1) Установить зависимости"
     echo "  2) Создать сеть Docker"
-    echo "  3) Docker login в Yandex CR"
-    echo "  4) Запустить Docker Compose"
-    echo "  5) Создать пользователей и БД в MongoDB"
-    echo "  6) Получить токен Vault"
-    echo "  7) Создать секрет в Vault"
-    echo "  8) Определить порт/схему Keycloak"
-    echo "  9) Дождаться готовности Keycloak"
-    echo " 10) Импортировать realm"
-    echo " 11) Создать пользователя и обновить пароль"
-    echo " 12) Перезапустить Docker Compose (down и up -d)"
-    echo " 13) Показать итоги/URL"
-    echo " 14) Полная деинсталляция (контейнеры, тома, сеть, образы)"
-    echo " 15) Полная переустановка (деинсталляция + установка с нуля)"
+    echo "  3) Проверить переменные окружения (export_variables.txt)"
+    echo "  4) Docker login в Yandex CR"
+    echo "  5) Запустить Docker Compose"
+    echo "  6) Создать пользователей и БД в MongoDB"
+    echo "  7) Получить токен Vault"
+    echo "  8) Создать секрет в Vault"
+    echo "  9) Определить порт/схему Keycloak"
+    echo " 10) Дождаться готовности Keycloak"
+    echo " 11) Импортировать realm"
+    echo " 12) Создать пользователя и обновить пароль"
+    echo " 13) Перезапустить Docker Compose (down и up -d)"
+    echo " 14) Показать итоги/URL"
+    echo " 15) Полная деинсталляция (контейнеры, тома, сеть, образы)"
+    echo " 16) Полная переустановка (деинсталляция + установка с нуля)"
     echo "  q) Выход"
     sep
     read -rp "Ваш выбор: " choice || true
@@ -1788,19 +1821,20 @@ main_menu() {
       0) run_all ;;
       1) run_step "Зависимости"                          step_deps ;;
       2) run_step "Создание сети Docker"                 step_create_network ;;
-      3) run_step "Docker login в Yandex CR"             step_docker_login ;;
-      4) run_step "Запуск Docker Compose"                step_compose_up ;;
-      5) run_step "Создание пользователей и БД в MongoDB" step_create_mongo_users_and_dbs ;;
-      6) run_step "Получение токена Vault"                step_get_vault_token ;;
-      7) run_step "Создание секрета в Vault"              step_create_vault_secret ;;
-      8) run_step "Определение порта/схемы Keycloak"     step_detect_kc_port ;;
-      9) run_step "Ожидание готовности Keycloak"         step_wait_keycloak ;;
-      10) run_step "Импорт realm"                         step_import_realm ;;
-      11) run_step "Создание пользователя и обновление пароля" step_create_user_and_groups ;;
-      12) run_step "Перезапуск Docker Compose"             step_restart_compose ;;
-      13) step_summary; pause ;;
-      14) run_step "Полная деинсталляция" step_uninstall_full ;;
-      15) run_step "Полная переустановка" step_reinstall_full ;;
+      3) if validate_required_env; then pause; fi ;;
+      4) run_step "Docker login в Yandex CR"             step_docker_login ;;
+      5) run_step "Запуск Docker Compose"                step_compose_up ;;
+      6) run_step "Создание пользователей и БД в MongoDB" step_create_mongo_users_and_dbs ;;
+      7) run_step "Получение токена Vault"               step_get_vault_token ;;
+      8) run_step "Создание секрета в Vault"             step_create_vault_secret ;;
+      9) run_step "Определение порта/схемы Keycloak"     step_detect_kc_port ;;
+      10) run_step "Ожидание готовности Keycloak"         step_wait_keycloak ;;
+      11) run_step "Импорт realm"                        step_import_realm ;;
+      12) run_step "Создание пользователя и обновление пароля" step_create_user_and_groups ;;
+      13) run_step "Перезапуск Docker Compose"           step_restart_compose ;;
+      14) step_summary; pause ;;
+      15) run_step "Полная деинсталляция" step_uninstall_full ;;
+      16) run_step "Полная переустановка" step_reinstall_full ;;
       q|Q) echo "Выход."; exit 0 ;;
       *) warn "Некорректный выбор." ;;
     esac

@@ -34,7 +34,7 @@ export KEYCLOAK_ADMIN_USER=unicnet
 export KEYCLOAK_ADMIN_PASSWORD=admin123
 
 # Лицензия (используется всеми сервисами). Замените на реальное значение перед запуском
-export UniCommLicenseData=default_license_data
+export UniCommLicenseData=
 
 # Router (unicnet.router). RouterCidr: как узнать на сервере — ip addr или ip route
 export RouterCidr=
