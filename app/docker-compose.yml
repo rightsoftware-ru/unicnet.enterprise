@@ -147,7 +147,7 @@ services:
 
   unicnet.frontend:
     container_name: unicnetfrontend
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front260210
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unicnet.solid/prod:front260220
     restart: unless-stopped
     environment:
       - api.vault.url=http://unicnetvault:80/
