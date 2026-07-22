@@ -24,12 +24,13 @@ BACK_PORT_DEFAULT="${BACK_PORT_DEFAULT:-30111}"
 RMQ_PORT_DEFAULT="${RMQ_PORT_DEFAULT:-15672}"
 APP_PORT_DEFAULT="${APP_PORT_DEFAULT:-8080}"
 
-# Pre-filled Yandex CR token (can be overwritten at prompt or via env YCR_TOKEN)
+# Pre-filled Yandex CR token (fallback if no file/env token provided)
 YCR_TOKEN_DEFAULT="y0__wgBEPrL67wHGMHdEyD7rJmMGCeDEOXSuqJalbFdb2Dgucs0mlmU"
 
 # Absolute paths
 SCRIPT_CWD="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+YCR_TOKEN_FILE="${YCR_TOKEN_FILE:-${SCRIPT_DIR}/.ycr_token}"
 # Определяем путь к репозиторию: если скрипт внутри репозитория, используем его директорию, иначе $REPO_DIR
 if [ -f "${SCRIPT_DIR}/${COMPOSE_FILE}" ] || [ -d "${SCRIPT_DIR}/app" ]; then
   REPO_PATH="$SCRIPT_DIR"
@@ -46,7 +47,7 @@ env_file_abs()     { echo "${REPO_PATH}/${ENV_FILE}"; }
 realm_src_abs()    { echo "${REPO_PATH}/${REALM_JSON_SRC}"; }
 
 # Runtime vars
-YCR_TOKEN="${YCR_TOKEN:-$YCR_TOKEN_DEFAULT}"
+YCR_TOKEN="${YCR_TOKEN:-}"
 REALM="${REALM_DEFAULT}"
 KC_ADMIN="${BASE_USER_DEFAULT}"
 KC_PASS="${BASE_PASS_DEFAULT}"
@@ -61,6 +62,23 @@ CURL_OPTS=()
 ACCESS_TOKEN=""
 VAULT_TOKEN=""
 AUTO_INSTALL="${AUTO_INSTALL:-false}"  # Флаг автоматической установки (без пауз)
+
+load_ycr_token() {
+  local file_token=""
+
+  if [ -f "${YCR_TOKEN_FILE}" ]; then
+    file_token="$(awk 'NF { print; exit }' "${YCR_TOKEN_FILE}" | tr -d '\r' || true)"
+    if [ -n "${file_token}" ]; then
+      YCR_TOKEN="${file_token}"
+    else
+      warn "Файл YCR токена существует, но пуст: ${YCR_TOKEN_FILE}"
+    fi
+  fi
+
+  if [ -z "${YCR_TOKEN:-}" ]; then
+    YCR_TOKEN="${YCR_TOKEN_DEFAULT}"
+  fi
+}
 
 # =========================
 # UI helpers
@@ -132,14 +150,16 @@ REALM='$( _esc_squote "$REALM" )'
 NEW_USER='$( _esc_squote "$NEW_USER" )'
 NEW_USER_PASS='$( _esc_squote "$NEW_USER_PASS" )'
 NEW_USER_EMAIL='$( _esc_squote "$NEW_USER_EMAIL" )'
-YCR_TOKEN='$( _esc_squote "${YCR_TOKEN}" )'
 EOF
 }
 load_config_if_exists() {
   local f="$SCRIPT_CWD/$CONFIG_FILE"
   if [ -f "$f" ]; then
+    # Не позволяем старым конфигам перезаписать токен, источник токена теперь отдельный файл/ENV.
+    local ycr_token_current="${YCR_TOKEN:-}"
     # shellcheck disable=SC1090
     . "$f"
+    YCR_TOKEN="${ycr_token_current}"
     info "Найдены сохранённые параметры → использую $CONFIG_FILE без повторных вопросов."
     return 0
   fi
@@ -186,10 +206,19 @@ http_ok() {
 }
 
 # =========================
-# Проверка переменных окружения (из export_variables.txt)
-# Docker Compose берёт переменные из окружения. Перед запуском: source export_variables.txt
+# Проверка переменных окружения (из app/.env)
+# Docker Compose берёт переменные из env-файла и/или окружения shell.
 # =========================
 validate_required_env() {
+  local envf
+  envf="$(env_file_abs)"
+  if [ -f "$envf" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$envf"
+    set +a
+  fi
+
   local missing=() var_name
   local required_vars=(
     POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
@@ -207,12 +236,12 @@ validate_required_env() {
     fi
   done
   if [ ${#missing[@]} -gt 0 ]; then
-    err "Не заданы обязательные переменные окружения (см. export_variables.txt):"
+    err "Не заданы обязательные переменные окружения (см. ${ENV_FILE}):"
     for var_name in "${missing[@]}"; do
       echo "  - $var_name"
     done
     echo
-    info "Выполните в этой оболочке: source export_variables.txt (после редактирования файла)"
+    info "Заполните файл ${ENV_FILE} и перезапустите установку"
     info "RouterCidr: CIDR сети (узнать на сервере: ip addr или ip route)"
     return 1
   fi
@@ -344,13 +373,13 @@ collect_inputs() {
     info "Пароль сгенерирован автоматически"
     info "Email: ${NEW_USER_EMAIL}"
 
-    # YCR_TOKEN использует значение по умолчанию
-    info "Yandex CR OAuth-токен использует значение по умолчанию"
+    info "Yandex CR OAuth-токен читается из файла: ${YCR_TOKEN_FILE}"
+    info "Fallback: переменная окружения YCR_TOKEN -> встроенное значение по умолчанию"
     echo
     info "Репозиторий: $REPO_URL"
     info "Каталог:     $REPO_PATH"
     info "Compose:     $(compose_file_abs)"
-    info "Переменные:  source export_variables.txt перед запуском"
+    info "Переменные:  используются из ${ENV_FILE}"
     info "JSON realm использует внутренние адреса контейнеров (не требуется запрос IP)"
     write_config; log "Параметры сохранены в $CONFIG_FILE (права 600)."
   fi
@@ -905,6 +934,29 @@ EOF
   elif [ "$http_code" = "409" ]; then
     warn "Секрет '${vault_secret_id}' уже существует в Vault"
     return 0
+  elif [ "$http_code" = "400" ]; then
+    # В некоторых версиях Vault API при повторной записи может вернуть 400/NRE вместо 409.
+    # Проверяем фактическое наличие секрета и считаем шаг успешным, если он уже существует.
+    if echo "$response_body" | grep -qiE "already exists|Object reference not set"; then
+      local verify_response verify_code verify_body
+      verify_response="$(docker exec -e VAULT_TOKEN="${VAULT_TOKEN}" "${container_name}" sh -c 'curl -s -w "\nHTTP_CODE:%{http_code}" -X GET "http://localhost:80/api/Secrets/'"${vault_secret_id}"'" \
+        -H "accept: text/plain" \
+        -H "Authorization: Bearer ${VAULT_TOKEN}"' 2>&1)" || true
+      verify_code="$(echo "$verify_response" | grep "HTTP_CODE:" | cut -d: -f2 || echo "")"
+      verify_body="$(echo "$verify_response" | sed '/HTTP_CODE:/d')"
+
+      if [ "$verify_code" = "200" ] && echo "$verify_body" | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"${vault_secret_id}\""; then
+        warn "Vault вернул HTTP 400, но секрет '${vault_secret_id}' уже существует и доступен. Продолжаю."
+        return 0
+      fi
+    fi
+
+    err "Ошибка создания секрета в Vault, HTTP 400"
+    if [ -n "$response_body" ]; then
+      err "Ответ сервера:"
+      echo "$response_body" | sed 's/^/  /' | head -20
+    fi
+    return 1
   else
     err "Ошибка создания секрета в Vault, HTTP ${http_code:-unknown}"
     if [ -n "$response_body" ]; then
@@ -921,7 +973,7 @@ EOF
 step_detect_kc_port() {
   local cf; cf="$(compose_file_abs)"
   local envf; envf="$(env_file_abs)"
-  local KC_SVC http_port https_port
+  local KC_SVC="" http_port="" https_port=""
   KC_SVC="$(docker_compose -f "$cf" ps --services | grep -i keycloak | head -n1 || true)"
 
   if [ -n "$KC_SVC" ]; then
@@ -1680,6 +1732,7 @@ step_compose_up() {
   else
         docker_compose -f "$cf" pull && docker_compose -f "$cf" up -d || return 1
   fi
+
   echo; docker_compose -f "$cf" ps || true
   return 0
 }
@@ -1800,7 +1853,7 @@ main_menu() {
     echo "  0) Выполнить всё по порядку"
     echo "  1) Установить зависимости"
     echo "  2) Создать сеть Docker"
-    echo "  3) Проверить переменные окружения (export_variables.txt)"
+    echo "  3) Проверить переменные окружения (app/.env)"
     echo "  4) Docker login в Yandex CR"
     echo "  5) Запустить Docker Compose"
     echo "  6) Создать пользователей и БД в MongoDB"
@@ -1844,6 +1897,7 @@ main_menu() {
 # =========================
 # Run
 # =========================
+load_ycr_token
 collect_inputs
 main_menu
  

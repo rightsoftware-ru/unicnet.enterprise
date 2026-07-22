@@ -58,11 +58,11 @@
 # Экспортируйте переменную окружения с лицензией
 export UniCommLicenseData="ваша_лицензия_здесь"
 
-# Или добавьте в файл export_variables.txt:
-# export UniCommLicenseData="ваша_лицензия_здесь"
+# Или добавьте в файл app/.env:
+# UniCommLicenseData="ваша_лицензия_здесь"
 ```
 
-> **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` экспортирована перед запуском `docker-compose up`.
+> **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что значение `UniCommLicenseData` задано в `app/.env` перед запуском `docker-compose up`.
 
 </div>
 
@@ -180,12 +180,13 @@ graph TD
 
    > **🚨 КРИТИЧЕСКИ ВАЖНО**: Перед запуском скрипта установки **ОБЯЗАТЕЛЬНО** необходимо установить лицензию в переменную окружения `UniCommLicenseData`. Без действующей лицензии система не будет работать корректно!
 
-   Перед запуском скрипта установки необходимо отредактировать и применить переменные окружения из файла `export_variables.txt`:
+   Перед запуском скрипта установки необходимо отредактировать файл `app/.env`:
 
-   1. **Отредактируйте файл `export_variables.txt`** в корне репозитория:
+   1. **Отредактируйте файл `app/.env`**:
 
       ```bash
-      nano export_variables.txt
+      cp app/.env.example app/.env
+      nano app/.env
       ```
 
       > **Примечание**: Вы можете использовать любой другой текстовый редактор вместо `nano` (например, `vi`, `vim`, `gedit`, `code` и т.д.).
@@ -200,16 +201,10 @@ graph TD
       > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО**  напишите реальную лицензию
       > - `RouterCidr` - **ОБЯЗАТЕЛЬНО** замените  на ваш реальный CIDR
 
-   2. **Примените переменные окружения** из отредактированного файла:
+   2. **Проверьте значение лицензии** в файле:
 
       ```bash
-      source export_variables.txt
-      ```
-
-      Или:
-
-      ```bash
-      . export_variables.txt
+      rg '^UniCommLicenseData=' app/.env
       ```
 
    3. **Проверьте, что переменные окружения применены**, особенно лицензия:
@@ -218,7 +213,7 @@ graph TD
       echo $UniCommLicenseData
       ```
 
-      > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, и экспортирована перед запуском скрипта установки.
+      > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что `UniCommLicenseData` содержит вашу реальную лицензию в `app/.env`.
 
 4. **Запустите скрипт**:
 
@@ -286,16 +281,29 @@ docker network create unicnet_network
 
 Образы UnicNet Enterprise находятся в Yandex Container Registry компании «ПРАВИЛЬНЫЙ СОФТ». 
 
-Для подключения к реестру выполните команду в терминале:
+Для подключения к реестру рекомендуется хранить OAuth-токен в отдельном файле `.ycr_token` в корне репозитория:
 
 ```bash
-echo y0_AgAAAAB3muX6AATuwQAAAAEawLLRAAB9TQHeGyxGPZXkjVDHF1ZNJcV8UQ | docker login \
+cat > .ycr_token <<'EOF'
+<ваш_yandex_cr_oauth_token>
+EOF
+chmod 600 .ycr_token
+```
+
+`install.sh` автоматически читает токен из `.ycr_token`.  
+Fallback-порядок: `.ycr_token` → переменная окружения `YCR_TOKEN` → встроенное значение по умолчанию.
+
+Для ручного подключения к реестру выполните команду в терминале:
+
+```bash
+cat .ycr_token | docker login \
 --username oauth \
 --password-stdin \
 cr.yandex
 ```
 
 > **Примечание**: Токен может быть изменен. Если команда не работает, запросите актуальный токен у администратора.
+> Не храните токен в истории shell-команд и в открытом виде в markdown-документах.
 
 **Актуальные образы:**
 - PostgreSQL: `cr.yandex/crp39psc34hg49unp6p7/postgres:alpine3.15`
@@ -315,12 +323,15 @@ cr.yandex
 
 #### Настройка переменных окружения
 
-Перед запуском Docker Compose необходимо отредактировать и применить переменные окружения из файла `export_variables.txt`:
+Перед запуском Docker Compose необходимо отредактировать файл `app/.env`:
 
-1. **Отредактируйте файл `export_variables.txt`** в корне репозитория:
+Healthcheck сервисов теперь выполняется inline (через `curl`) внутри `docker-compose.yml`; отдельный скрипт `./scripts/check-port.sh` для этих проверок больше не используется.
+
+1. **Отредактируйте файл `app/.env`**:
 
    ```bash
-   nano export_variables.txt
+   cp app/.env.example app/.env
+   nano app/.env
    ```
 
    > **Примечание**: Вы можете использовать любой другой текстовый редактор вместо `nano` (например, `vi`, `vim`, `gedit`, `code` и т.д.).
@@ -335,16 +346,10 @@ cr.yandex
    > - `UniCommLicenseData` - **ОБЯЗАТЕЛЬНО** напишите на вашу реальную лицензию
    > - `RouterCidr` - **ОБЯЗАТЕЛЬНО** замените  на ваш реальный CIDR
 
-2. **Примените переменные окружения** из отредактированного файла:
+2. **Проверьте значение лицензии**:
 
    ```bash
-   source export_variables.txt
-   ```
-
-   Или:
-
-   ```bash
-   . export_variables.txt
+   rg '^UniCommLicenseData=' app/.env
    ```
 
 3. **Проверьте, что переменные окружения применены**, особенно лицензия:
@@ -353,7 +358,7 @@ cr.yandex
    echo $UniCommLicenseData
    ```
 
-   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что переменная `UniCommLicenseData` содержит вашу реальную лицензию, и экспортирована перед запуском `docker-compose up`.
+   > **⚠️ ВАЖНО**: Лицензия используется всеми сервисами (Backend, Frontend, Logger, Syslog, Vault, Router). Убедитесь, что `UniCommLicenseData` содержит вашу реальную лицензию в `app/.env`.
 
 #### Запуск контейнеров
 
@@ -397,7 +402,7 @@ docker-compose -f docker-compose.yml up -d
 
 После запуска контейнеров необходимо создать **трех пользователей** и соответствующие базы данных в MongoDB. Это выполняется автоматически скриптом `install.sh`, но при ручной установке можно выполнить через MongoDB команды.
 
-> **Примечание**: Используйте переменные окружения из файла `export_variables.txt`, которые вы применили на шаге 5. Убедитесь, что переменные экспортированы перед выполнением команд.
+> **Примечание**: Используйте переменные из файла `app/.env`, который вы отредактировали на шаге 5.
 
 Создайте пользователей и базы данных, используя переменные окружения. Выполните следующие команды:
 
@@ -674,7 +679,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    
    ```bash
    # Подключиться к базе данных PostgreSQL напрямую
-   # Используйте переменные из export_variables.txt
+   # Используйте переменные из app/.env
    docker exec -it unicnetpostgres psql -U ${POSTGRES_USER:-unicnet} -d postgres
    ```
    
@@ -724,7 +729,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    \q         -- Выйти из psql
    ```
    
-   > **Примечание**: Используйте переменные окружения из файла `export_variables.txt`:
+   > **Примечание**: Используйте переменные окружения из файла `app/.env`:
    > - `POSTGRES_USER` - имя пользователя (по умолчанию: `unicnet`)
    > - `POSTGRES_DB` - имя базы данных (по умолчанию: `unicnetdb`)
    > - `POSTGRES_PASSWORD` - пароль пользователя
@@ -752,7 +757,7 @@ docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.ym
    # (должно быть пусто)
    ```
 
-   > **Примечание**: Переменные окружения удаляются только из текущей сессии shell. После закрытия терминала они автоматически удаляются. Для постоянного удаления нужно также удалить их из файла `export_variables.txt` или из файла конфигурации shell (`.bashrc`, `.bash_profile` и т.д.).
+   > **Примечание**: Переменные читаются из `app/.env` автоматически Docker Compose. Для изменения значений отредактируйте файл `app/.env`.
 
 4. **Как посмотреть логи всех сервисов**. Для просмотра логов каждого сервиса используйте следующие команды:
 
