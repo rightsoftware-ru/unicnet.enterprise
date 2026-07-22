@@ -24,9 +24,6 @@ BACK_PORT_DEFAULT="${BACK_PORT_DEFAULT:-30111}"
 RMQ_PORT_DEFAULT="${RMQ_PORT_DEFAULT:-15672}"
 APP_PORT_DEFAULT="${APP_PORT_DEFAULT:-8080}"
 
-# Pre-filled Yandex CR token (fallback if no file/env token provided)
-YCR_TOKEN_DEFAULT="y0__wgBEPrL67wHGMHdEyD7rJmMGCeDEOXSuqJalbFdb2Dgucs0mlmU"
-
 # Absolute paths
 SCRIPT_CWD="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,7 +44,7 @@ env_file_abs()     { echo "${REPO_PATH}/${ENV_FILE}"; }
 realm_src_abs()    { echo "${REPO_PATH}/${REALM_JSON_SRC}"; }
 
 # Runtime vars
-YCR_TOKEN="${YCR_TOKEN:-}"
+YCR_TOKEN=""
 REALM="${REALM_DEFAULT}"
 KC_ADMIN="${BASE_USER_DEFAULT}"
 KC_PASS="${BASE_PASS_DEFAULT}"
@@ -64,19 +61,16 @@ VAULT_TOKEN=""
 AUTO_INSTALL="${AUTO_INSTALL:-false}"  # Флаг автоматической установки (без пауз)
 
 load_ycr_token() {
-  local file_token=""
-
-  if [ -f "${YCR_TOKEN_FILE}" ]; then
-    file_token="$(awk 'NF { print; exit }' "${YCR_TOKEN_FILE}" | tr -d '\r' || true)"
-    if [ -n "${file_token}" ]; then
-      YCR_TOKEN="${file_token}"
-    else
-      warn "Файл YCR токена существует, но пуст: ${YCR_TOKEN_FILE}"
-    fi
+  if [ ! -f "${YCR_TOKEN_FILE}" ]; then
+    warn "Файл YCR токена не найден: ${YCR_TOKEN_FILE}"
+    warn "Docker login в Yandex CR будет пропущен (шаг 4)."
+    return 0
   fi
 
-  if [ -z "${YCR_TOKEN:-}" ]; then
-    YCR_TOKEN="${YCR_TOKEN_DEFAULT}"
+  YCR_TOKEN="$(awk 'NF { print; exit }' "${YCR_TOKEN_FILE}" | tr -d '\r' || true)"
+  if [ -z "${YCR_TOKEN}" ]; then
+    warn "Файл YCR токена существует, но пуст: ${YCR_TOKEN_FILE}"
+    warn "Docker login в Yandex CR будет пропущен (шаг 4)."
   fi
 }
 
@@ -155,11 +149,8 @@ EOF
 load_config_if_exists() {
   local f="$SCRIPT_CWD/$CONFIG_FILE"
   if [ -f "$f" ]; then
-    # Не позволяем старым конфигам перезаписать токен, источник токена теперь отдельный файл/ENV.
-    local ycr_token_current="${YCR_TOKEN:-}"
     # shellcheck disable=SC1090
     . "$f"
-    YCR_TOKEN="${ycr_token_current}"
     info "Найдены сохранённые параметры → использую $CONFIG_FILE без повторных вопросов."
     return 0
   fi
@@ -374,7 +365,7 @@ collect_inputs() {
     info "Email: ${NEW_USER_EMAIL}"
 
     info "Yandex CR OAuth-токен читается из файла: ${YCR_TOKEN_FILE}"
-    info "Fallback: переменная окружения YCR_TOKEN -> встроенное значение по умолчанию"
+    info "Используется только .ycr_token (без fallback через YCR_TOKEN)."
     echo
     info "Репозиторий: $REPO_URL"
     info "Каталог:     $REPO_PATH"

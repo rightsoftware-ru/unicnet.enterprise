@@ -25,7 +25,7 @@
 #   KEYCLOAK_ADMIN_PASSWORD=admin123
 #   (использует те же переменные PostgreSQL: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)
 #
-# Глобальные переменные (задаются через export):
+# Глобальные переменные (задаются через app/.env):
 #   UniCommLicenseData=default_license_data
 #
 # Router (unicnet.router):
