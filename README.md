@@ -3,11 +3,11 @@ UnicNet
 
 ## Развёртывание
 
-Актуальная поставка (PostgreSQL 18, Keycloak 26, Vault-first, образы `20260825-767ceff843ca`): см. [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
+Рабочий каталог стенда — корень репозитория. Актуальная инструкция: [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
 
-Корень репозитория — рабочий каталог Docker Compose (`compose.yml`, `.env.example`, `bootstrap-vault.sh`, `vault-values.example.json`).
+Состав: `compose.yml`, `.env.example`, `bootstrap-vault.sh`, `vault-values.example.json`, `keycloak-import/unicnet-realm.json`.
 
-Предыдущая Mongo-based инструкция (`install.sh`, `install_all_in_one_instructions.md`, `app/docker-compose.yml`) сохранена как архив и не используется для новых стендов.
+Образы: PostgreSQL 18, Keycloak 26.7, прикладные сервисы с тегом `20260825-767ceff843ca`. MongoDB и старый `install.sh` в этой поставке нет.
 
 
 1. Автоматизация поиска и опознания сетевых устройств по протоколам SNMP, SSH, Telnet, Redfish, IPMI. Возможность получения базовых данных от устройств, не имеющих поддержку указанных протоколов на уровне сети.

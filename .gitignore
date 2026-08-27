@@ -1,7 +1,4 @@
-# Local secrets and generated installer state
 .env
 vault-values.json
 .ycr_token
-unicnet_installer.conf
-app/.env
 .unicadmin-password
