@@ -1,0 +1,50 @@
+{
+  "Unic.Logger": {
+    "Storage__ConnectionString": "Host=pg;Port=5432;Database=replace;Username=replace;Password=replace;Application Name=Unic.Logger",
+    "Storage__Schema": "un",
+    "Logger__Verbose": "true",
+    "UseScalar": "true"
+  },
+  "UnicNet.SysLog": {
+    "Storage__ConnectionString": "Host=pg;Port=5432;Database=replace;Username=replace;Password=replace;Application Name=UnicNet.SysLog",
+    "Storage__Schema": "un",
+    "Logger__Url": "http://logger:8080/",
+    "SysLog__UseCache": "true",
+    "SysLog__FlushPeriodSeconds": "300",
+    "UseScalar": "true"
+  },
+  "UnicNet.Router": {
+    "Router__Backend__Url": "http://backend:8080/",
+    "Router__Logger__Url": "http://logger:8080/",
+    "Router__SysLog__Url": "http://syslog:8080/",
+    "Router__Keycloak__Url": "http://replace-with-host-ip-or-dns:8095/",
+    "Router__Keycloak__Realm": "unicnet",
+    "Router__Keycloak__Admin__Username": "replace_with_current_admin",
+    "Router__Keycloak__Admin__Password": "replace_with_current_admin_password",
+    "Router__Cidr": "replace_with_host_network_cidr",
+    "Router__License__Data": "replace_with_current_license_data",
+    "UseScalar": "true"
+  },
+  "UnicNet.Backend": {
+    "Storage__ConnectionString": "Host=pg;Port=5432;Database=replace;Username=replace;Password=replace;Application Name=UnicNet.Backend",
+    "Storage__Schema": "un",
+    "Logger__Url": "http://logger:8080/",
+    "Keycloak__Url": "http://replace-with-host-ip-or-dns:8095/",
+    "Keycloak__ClientId": "FrontUiV2",
+    "Keycloak__Realm": "unicnet",
+    "Keycloak__Admin__Username": "replace_with_current_admin",
+    "Keycloak__Admin__Password": "replace_with_current_admin_password",
+    "UseScalar": "true"
+  },
+  "UNFrontV2": {
+    "Front__Backend__Url": "http://backend:8080/",
+    "Front__Router__Url": "http://router:8080/",
+    "Front__Logger__Url": "http://logger:8080/",
+    "Front__SysLog__Url": "http://syslog:8080/",
+    "Front__Vault__Url": "http://vault:8080/",
+    "Front__Vault__Name": "UNFrontV2",
+    "Front__Keycloak__Realm": "unicnet",
+    "UniCommLicenseData": "replace_with_current_license_data"
+  }
+}
+

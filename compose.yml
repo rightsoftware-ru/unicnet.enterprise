@@ -1,0 +1,180 @@
+name: unicnet
+
+x-vault-client-environment: &vault-client-environment
+  ASPNETCORE_ENVIRONMENT: Production
+  ASPNETCORE_HTTP_PORTS: 8080
+  Vault__Url: http://vault:8080/
+  Vault__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
+  Vault__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
+  Vault__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
+
+services:
+  pg:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:${PG_IMAGE_TAG:-18}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [unicnet]
+
+  keycloak:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:${KEYCLOAK_IMAGE_TAG:-26.7.0}
+    restart: unless-stopped
+    command: start --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?Set KEYCLOAK_ADMIN in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://pg:5432/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?Set KEYCLOAK_PUBLIC_URL in .env}
+    volumes:
+      - ./keycloak-import:/opt/keycloak/data/import:ro
+    ports:
+      - "8095:8080"
+    depends_on:
+      pg:
+        condition: service_healthy
+    networks: [unicnet]
+
+  vault:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      Storage__ConnectionString: Host=pg;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Application Name=Unic.Vault
+      Storage__Schema: unicomm
+      Vault__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY}
+      Vault__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
+      Vault__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
+      UseScalar: "true"
+    ports:
+      - "127.0.0.1:8200:8080"
+    depends_on:
+      pg:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/openapi/v1.json >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    networks: [unicnet]
+
+  logger:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment: *vault-client-environment
+    ports:
+      - "8082:8080"
+    depends_on:
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    networks: [unicnet]
+
+  router:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment: *vault-client-environment
+    ports:
+      - "30115:8080"
+    depends_on:
+      vault:
+        condition: service_healthy
+      logger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    networks: [unicnet]
+
+  syslog:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment: *vault-client-environment
+    ports:
+      - "8001:8080"
+      - "514:514/udp"
+      - "601:601"
+      - "601:601/udp"
+      - "6514:6514"
+    depends_on:
+      vault:
+        condition: service_healthy
+      logger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    networks: [unicnet]
+
+  backend:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment: *vault-client-environment
+    ports:
+      - "30111:8080"
+    depends_on:
+      vault:
+        condition: service_healthy
+      logger:
+        condition: service_healthy
+      router:
+        condition: service_healthy
+      syslog:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 18
+    networks: [unicnet]
+
+  frontend:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unfront:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    restart: unless-stopped
+    environment:
+      <<: *vault-client-environment
+      api.vault.name: UNFrontV2
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 18
+    networks: [unicnet]
+
+networks:
+  unicnet:
+    name: unicnet_network
+
+volumes:
+  postgres-data:
+
