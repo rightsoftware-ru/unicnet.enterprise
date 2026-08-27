@@ -24,10 +24,14 @@ secret_type() {
 }
 
 while IFS= read -r owner; do
+  # Token endpoint returns a raw JWT as text/plain, not a JSON string.
   token="$(curl -fsS --get \
     --data-urlencode "username=$owner" \
     --data-urlencode "role=Service" \
-    "$vault_url/api/token/0f8e160416b94225a73f86ac23b9118b" | jq -r '.')"
+    "$vault_url/api/token/0f8e160416b94225a73f86ac23b9118b")"
+  if [[ "$token" == \"* ]]; then
+    token="$(jq -r '.' <<<"$token")"
+  fi
   names="$(curl -fsS -H "Authorization: Bearer $token" "$vault_url/api/Secrets/names")"
 
   while IFS= read -r name; do
