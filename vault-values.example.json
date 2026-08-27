@@ -23,7 +23,8 @@
     "Router__Keycloak__Admin__Password": "replace_with_current_admin_password",
     "Router__Cidr": "replace_with_host_network_cidr",
     "Router__License__Data": "replace_with_current_license_data",
-    "UseScalar": "true"
+    "UseScalar": "true",
+    "UniCommLicenseData": "replace_with_current_license_data"
   },
   "UnicNet.Backend": {
     "Storage__ConnectionString": "Host=pg;Port=5432;Database=replace;Username=replace;Password=replace;Application Name=UnicNet.Backend",
@@ -34,7 +35,8 @@
     "Keycloak__Realm": "unicnet",
     "Keycloak__Admin__Username": "replace_with_current_admin",
     "Keycloak__Admin__Password": "replace_with_current_admin_password",
-    "UseScalar": "true"
+    "UseScalar": "true",
+    "UniCommLicenseData": "replace_with_current_license_data"
   },
   "UNFrontV2": {
     "Front__Backend__Url": "http://backend:8080/",
@@ -44,7 +46,7 @@
     "Front__Vault__Url": "http://vault:8080/",
     "Front__Vault__Name": "UNFrontV2",
     "Front__Keycloak__Realm": "unicnet",
-    "UniCommLicenseData": "replace_with_current_license_data"
+    "UniCommLicenseData": "replace_with_current_license_data",
+    "Api_License_Url": "https://license.unic.chat/"
   }
 }
-
