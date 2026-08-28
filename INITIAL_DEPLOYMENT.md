@@ -13,7 +13,6 @@
 - [Проверка после установки](#проверка-после-установки)
 - [Лицензия](#лицензия)
 - [Обновление образов](#обновление-образов)
-- [Безопасность](#безопасность)
 
 ## Требования
 
@@ -296,15 +295,3 @@ curl -fsS -H "Authorization: Bearer $UNIC_LICENSE_DATA" \
 Откат — вернуть предыдущий тег и снова выполнить `./install.sh`. Данные PostgreSQL в volume `unicnet_postgres-data`; перед обновлением сделайте `pg_dump`.
 
 
-
-## Безопасность
-
-Не коммитьте в git:
-
-- `.env`
-- `vault-values.json`
-- `.keycloak-passwords`
-- `.unicadmin-password`
-- токены Yandex Container Registry
-
-Файлы с секретами на диске: `chmod 600`.
