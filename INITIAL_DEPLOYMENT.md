@@ -13,7 +13,6 @@
 - [Проверка после установки](#проверка-после-установки)
 - [Лицензия](#лицензия)
 - [Обновление образов](#обновление-образов)
-- [Сборка образов](#сборка-образов)
 - [Безопасность](#безопасность)
 
 ## Требования
@@ -296,15 +295,7 @@ curl -fsS -H "Authorization: Bearer $UNIC_LICENSE_DATA" \
 
 Откат — вернуть предыдущий тег и снова выполнить `./install.sh`. Данные PostgreSQL в volume `unicnet_postgres-data`; перед обновлением сделайте `pg_dump`.
 
-## Сборка образов
 
-При сборке отключите provenance:
-
-```bash
-docker build --provenance=false -f UnicNet/UnicNet.Backend/Dockerfile .
-```
-
-Контекст сборки: Backend, Frontend, Router, SysLog — `UniComm.app`; Logger и Vault — `UnicSharedLib`.
 
 ## Безопасность
 
