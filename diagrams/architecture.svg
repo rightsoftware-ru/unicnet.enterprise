@@ -1,76 +1,166 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 640" width="1100" height="640" role="img" aria-label="UnicNet architecture">
-  <style>
-    .title { font: 700 20px sans-serif; fill: #1a365d; }
-    .box { fill: #edf2f7; stroke: #2b6cb0; stroke-width: 1.5; }
-    .pg { fill: #e6fffa; stroke: #319795; }
-    .ext { fill: #fff5f5; stroke: #c53030; }
-    .lbl { font: 600 13px sans-serif; fill: #1a202c; }
-    .sub { font: 11px sans-serif; fill: #4a5568; }
-    .cap { font: 12px sans-serif; fill: #2d3748; }
-    .line { stroke: #4a5568; stroke-width: 1.4; fill: none; marker-end: url(#arr); }
-  </style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="UnicNet architecture">
   <defs>
-    <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#4a5568"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f7fafc"/>
+      <stop offset="100%" stop-color="#edf2f7"/>
+    </linearGradient>
+    <linearGradient id="hostGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0f4f8"/>
+    </linearGradient>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#1a202c" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#4a5568"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#3182ce"/>
+    </marker>
+    <marker id="arrowTeal" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#319795"/>
     </marker>
   </defs>
-  <text x="24" y="32" class="title">UnicNet  >48= E>AB (Vault-first, PostgreSQL 18)</text>
-  <text x="24" y="52" class="sub">MongoDB 8 RabbitMQ =5B. 8F5=78O JWT 87 .env. Realm unicnet 2 keycloak-import.</text>
 
-  <rect x="40" y="80" width="140" height="56" rx="8" class="ext"/>
-  <text x="110" y="104" text-anchor="middle" class="lbl">Browser</text>
-  <text x="110" y="122" text-anchor="middle" class="sub">UI :8080</text>
+  <rect width="1200" height="720" fill="url(#bg)"/>
 
-  <rect x="40" y="280" width="140" height="56" rx="8" class="ext"/>
-  <text x="110" y="304" text-anchor="middle" class="lbl">license.unic.chat</text>
-  <text x="110" y="322" text-anchor="middle" class="sub">GET /api/lic</text>
+  <text x="40" y="42" font-family="Segoe UI, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1a365d">UnicNet — архитектура стека</text>
+  <text x="40" y="68" font-family="Segoe UI, system-ui, sans-serif" font-size="14" fill="#4a5568">PostgreSQL 18 · Unic.Vault · Keycloak · JWT лицензия из .env</text>
 
-  <rect x="40" y="480" width="140" height="56" rx="8" class="ext"/>
-  <text x="110" y="504" text-anchor="middle" class="lbl">Devices</text>
-  <text x="110" y="522" text-anchor="middle" class="sub">SSH SNMP syslog</text>
+  <!-- Legend -->
+  <g transform="translate(880, 24)">
+    <rect x="0" y="0" width="280" height="88" rx="10" fill="#ffffff" stroke="#e2e8f0" filter="url(#shadow)"/>
+    <text x="16" y="22" font-family="Segoe UI, system-ui, sans-serif" font-size="12" font-weight="600" fill="#2d3748">Легенда</text>
+    <rect x="16" y="32" width="14" height="14" rx="3" fill="#ebf8ff" stroke="#3182ce"/>
+    <text x="36" y="43" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#4a5568">Приложения</text>
+    <rect x="130" y="32" width="14" height="14" rx="3" fill="#faf5ff" stroke="#805ad5"/>
+    <text x="150" y="43" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#4a5568">Платформа</text>
+    <rect x="16" y="56" width="14" height="14" rx="3" fill="#e6fffa" stroke="#319795"/>
+    <text x="36" y="67" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#4a5568">Данные</text>
+    <rect x="130" y="56" width="14" height="14" rx="3" fill="#fff5f5" stroke="#e53e3e"/>
+    <text x="150" y="67" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#4a5568">Внешние</text>
+  </g>
 
-  <rect x="230" y="70" width="840" height="540" rx="12" fill="#f7fafc" stroke="#2b6cb0" stroke-width="2"/>
-  <text x="250" y="96" class="lbl">Host  compose project unicnet</text>
+  <!-- External: Browser -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="110" width="150" height="64" rx="12" fill="#fff5f5" stroke="#e53e3e" stroke-width="2"/>
+    <text x="115" y="138" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#742a2a">Browser</text>
+    <text x="115" y="154" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#9b2c2c">UI :8080 · OIDC</text>
+  </g>
 
-  <rect x="260" y="120" width="160" height="70" rx="8" class="box"/>
-  <text x="340" y="148" text-anchor="middle" class="lbl">Frontend</text>
-  <text x="340" y="168" text-anchor="middle" class="sub">:8080  UNFrontV2</text>
+  <!-- External: License -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="300" width="150" height="64" rx="12" fill="#fff5f5" stroke="#e53e3e" stroke-width="2"/>
+    <text x="115" y="328" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#742a2a">license.unic.chat</text>
+    <text x="115" y="344" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#9b2c2c">JWT license API</text>
+  </g>
 
-  <rect x="480" y="120" width="160" height="70" rx="8" class="box"/>
-  <text x="560" y="148" text-anchor="middle" class="lbl">Backend</text>
-  <text x="560" y="168" text-anchor="middle" class="sub">:30111</text>
+  <!-- External: Devices -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="490" width="150" height="64" rx="12" fill="#fff5f5" stroke="#e53e3e" stroke-width="2"/>
+    <text x="115" y="518" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#742a2a">Devices</text>
+    <text x="115" y="534" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#9b2c2c">SSH · SNMP · syslog</text>
+  </g>
 
-  <rect x="700" y="120" width="160" height="70" rx="8" class="box"/>
-  <text x="780" y="148" text-anchor="middle" class="lbl">Router</text>
-  <text x="780" y="168" text-anchor="middle" class="sub">:30115  CIDR</text>
+  <!-- Host boundary -->
+  <rect x="230" y="95" width="950" height="560" rx="16" fill="url(#hostGrad)" stroke="#3182ce" stroke-width="2" filter="url(#shadow)"/>
+  <text x="250" y="125" font-family="Segoe UI, system-ui, sans-serif" font-size="15" font-weight="600" fill="#2b6cb0">Host — compose project unicnet</text>
 
-  <rect x="260" y="240" width="160" height="70" rx="8" class="box"/>
-  <text x="340" y="268" text-anchor="middle" class="lbl">Keycloak 26</text>
-  <text x="340" y="288" text-anchor="middle" class="sub">:8095  realm unicnet</text>
+  <!-- Apps row label -->
+  <text x="250" y="158" font-family="Segoe UI, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4a5568">Application services</text>
 
-  <rect x="480" y="240" width="160" height="70" rx="8" class="box"/>
-  <text x="560" y="268" text-anchor="middle" class="lbl">Vault</text>
-  <text x="560" y="288" text-anchor="middle" class="sub">127.0.0.1:8200</text>
+  <!-- Frontend -->
+  <g filter="url(#shadow)">
+    <rect x="260" y="170" width="150" height="72" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="2"/>
+    <text x="335" y="202" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1a365d">Frontend</text>
+    <text x="335" y="220" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#2c5282">:8080 · UNFrontV2</text>
+  </g>
 
-  <rect x="700" y="240" width="160" height="70" rx="8" class="box"/>
-  <text x="780" y="268" text-anchor="middle" class="lbl">Logger / SysLog</text>
-  <text x="780" y="288" text-anchor="middle" class="sub">:8082  :8001  :514</text>
+  <!-- Backend -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="170" width="150" height="72" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="2"/>
+    <text x="495" y="202" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1a365d">Backend</text>
+    <text x="495" y="220" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#2c5282">:30111</text>
+  </g>
 
-  <rect x="460" y="420" width="220" height="80" rx="8" class="pg"/>
-  <text x="570" y="454" text-anchor="middle" class="lbl">PostgreSQL 18</text>
-  <text x="570" y="474" text-anchor="middle" class="sub">volume unicnet_postgres-data</text>
+  <!-- Router -->
+  <g filter="url(#shadow)">
+    <rect x="600" y="170" width="150" height="72" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="2"/>
+    <text x="675" y="202" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1a365d">Router</text>
+    <text x="675" y="220" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#2c5282">:30115 · CIDR</text>
+  </g>
 
-  <line x1="180" y1="108" x2="260" y2="150" class="line"/>
-  <line x1="180" y1="308" x2="260" y2="160" class="line"/>
-  <line x1="180" y1="508" x2="700" y2="190" class="line"/>
-  <line x1="180" y1="508" x2="780" y2="310" class="line"/>
-  <line x1="420" y1="155" x2="480" y2="155" class="line"/>
-  <line x1="640" y1="155" x2="700" y2="155" class="line"/>
-  <line x1="340" y1="190" x2="340" y2="240" class="line"/>
-  <line x1="560" y1="190" x2="560" y2="240" class="line"/>
-  <line x1="560" y1="310" x2="560" y2="420" class="line"/>
-  <line x1="340" y1="310" x2="500" y2="430" class="line"/>
-  <line x1="780" y1="310" x2="640" y2="440" class="line"/>
+  <!-- Logger -->
+  <g filter="url(#shadow)">
+    <rect x="770" y="170" width="150" height="72" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="2"/>
+    <text x="845" y="202" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1a365d">Logger</text>
+    <text x="845" y="220" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#2c5282">:8082</text>
+  </g>
 
-  <text x="250" y="590" class="cap">;85=B0< Vault: Vault__Url + JWT. 8F5=78O Front/Backend/Router: UNIC_LICENSE_DATA 2 .env. install.sh =5 A>740QB .env 8 =5 ;>38=8BAO 2 YCR.</text>
+  <!-- SysLog -->
+  <g filter="url(#shadow)">
+    <rect x="1000" y="170" width="150" height="72" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="2"/>
+    <text x="1075" y="202" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1a365d">SysLog</text>
+    <text x="1075" y="220" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#2c5282">:8001 · :514 UDP</text>
+  </g>
+
+  <!-- Platform label -->
+  <text x="250" y="318" font-family="Segoe UI, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4a5568">Platform</text>
+
+  <!-- Keycloak -->
+  <g filter="url(#shadow)">
+    <rect x="360" y="335" width="200" height="72" rx="10" fill="#faf5ff" stroke="#805ad5" stroke-width="2"/>
+    <text x="460" y="367" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#44337a">Keycloak 26</text>
+    <text x="460" y="385" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#6b46c1">:8095 · realm unicnet</text>
+  </g>
+
+  <!-- Vault -->
+  <g filter="url(#shadow)">
+    <rect x="640" y="335" width="200" height="72" rx="10" fill="#faf5ff" stroke="#805ad5" stroke-width="2"/>
+    <text x="740" y="367" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#44337a">Unic.Vault</text>
+    <text x="740" y="385" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#6b46c1">127.0.0.1:8200</text>
+  </g>
+
+  <!-- PostgreSQL -->
+  <g filter="url(#shadow)">
+    <rect x="480" y="470" width="280" height="90" rx="14" fill="#e6fffa" stroke="#319795" stroke-width="2"/>
+    <text x="640" y="508" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="18" font-weight="700" fill="#234e52">PostgreSQL 18</text>
+    <text x="640" y="528" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="12" fill="#2c7a7b">volume unicnet_postgres-data</text>
+  </g>
+
+  <!-- YCR -->
+  <g filter="url(#shadow)">
+    <rect x="900" y="470" width="160" height="64" rx="12" fill="#fffaf0" stroke="#dd6b20" stroke-width="2"/>
+    <text x="980" y="498" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#7b341e">cr.yandex</text>
+    <text x="980" y="514" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="11" fill="#c05621">docker pull</text>
+  </g>
+
+  <!-- Arrows external -->
+  <path d="M190 142 L258 200" fill="none" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M190 142 L258 360" fill="none" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M190 332 L258 210" fill="none" stroke="#e53e3e" stroke-width="1.6" marker-end="url(#arrow)" stroke-dasharray="5,3"/>
+  <path d="M190 522 L598 210" fill="none" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M190 522 L998 230" fill="none" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- Arrows apps -->
+  <path d="M410 206 L428 206" fill="none" stroke="#3182ce" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <path d="M580 206 L598 206" fill="none" stroke="#3182ce" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <path d="M750 206 L768 206" fill="none" stroke="#3182ce" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <path d="M980 206 L998 206" fill="none" stroke="#3182ce" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <!-- To platform -->
+  <path d="M335 242 L335 300 L460 333" fill="none" stroke="#805ad5" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M495 242 L495 300 L740 333" fill="none" stroke="#805ad5" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- To PG -->
+  <path d="M495 242 L640 468" fill="none" stroke="#319795" stroke-width="2" marker-end="url(#arrowTeal)"/>
+  <path d="M460 397 L520 468" fill="none" stroke="#319795" stroke-width="2" marker-end="url(#arrowTeal)"/>
+  <path d="M740 397 L680 468" fill="none" stroke="#319795" stroke-width="2" marker-end="url(#arrowTeal)"/>
+  <path d="M845 242 L700 490" fill="none" stroke="#319795" stroke-width="1.6" marker-end="url(#arrowTeal)"/>
+  <path d="M1075 242 L760 490" fill="none" stroke="#319795" stroke-width="1.6" marker-end="url(#arrowTeal)"/>
+
+  <!-- Dashed pull -->
+  <path d="M980 470 L900 280" fill="none" stroke="#dd6b20" stroke-width="1.6" marker-end="url(#arrow)" stroke-dasharray="6,4"/>
+
+  <text x="40" y="690" font-family="Segoe UI, system-ui, sans-serif" font-size="12" fill="#4a5568">Клиенты Vault: Vault__Url + JWT. Лицензия Front/Backend/Router: UNIC_LICENSE_DATA в .env.</text>
 </svg>

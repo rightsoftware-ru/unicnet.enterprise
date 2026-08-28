@@ -1,23 +1,55 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#ebf8ff',
+    'primaryTextColor': '#1a365d',
+    'primaryBorderColor': '#3182ce',
+    'secondaryColor': '#f0fff4',
+    'secondaryTextColor': '#234e52',
+    'secondaryBorderColor': '#38a169',
+    'tertiaryColor': '#faf5ff',
+    'tertiaryTextColor': '#553c9a',
+    'tertiaryBorderColor': '#805ad5',
+    'actorBkg': '#ebf8ff',
+    'actorBorder': '#3182ce',
+    'actorTextColor': '#1a365d',
+    'signalColor': '#4a5568',
+    'noteBkgColor': '#fffaf0',
+    'noteBorderColor': '#dd6b20',
+    'noteTextColor': '#744210',
+    'fontFamily': 'Segoe UI, system-ui, sans-serif',
+    'fontSize': '14px'
+  },
+  'sequence': { 'mirrorActors': false, 'boxMargin': 12, 'messageMargin': 40 }
+}}%%
 sequenceDiagram
-  actor Op as Operator
-  participant Env as .env.example
-  participant YCR as cr.yandex
-  participant S as install.sh
-  participant C as compose
-  participant V as Vault
-  participant KC as Keycloak
+  autonumber
+  actor Op as 👤 Operator
+  participant Env as 📄 .env.example
+  participant YCR as 📦 cr.yandex
+  participant S as ⚙ install.sh
+  participant C as 🐳 compose
+  participant V as 🔐 Vault
+  participant KC as 🛡 Keycloak
 
-  Op->>Env: fill secrets, JWT license, ROUTER_CIDR
-  Op->>Op: cp .env.example .env && chmod 600
-  Op->>YCR: docker login iam or oauth
-  Op->>S: ./install.sh
-  S->>S: require .env (no create, no login)
-  S->>S: render vault-values.json if missing
-  S->>C: pull
-  S->>C: up pg keycloak vault
-  S->>V: bootstrap-vault.sh
-  S->>KC: passwords for realm JSON users
-  Note over S,KC: .keycloak-passwords
-  S->>C: up -d --wait
-  S->>S: check Front Backend SysLog Keycloak
-  Note over S: do not curl Router :30115/health/ready
+  rect rgb(235, 248, 255)
+    Note over Op,YCR: Подготовка (вручную)
+    Op->>Env: заполнить секреты, JWT, ROUTER_CIDR
+    Op->>Op: cp .env.example .env && chmod 600
+    Op->>YCR: docker login iam / oauth
+  end
+
+  rect rgb(240, 255, 244)
+    Note over Op,KC: Автоматическая установка
+    Op->>S: ./install.sh
+    S->>S: проверка .env
+    S->>S: vault-values.json если нет
+    S->>C: pull
+    S->>C: up pg · keycloak · vault
+    S->>V: bootstrap-vault.sh
+    S->>KC: пароли пользователей realm
+    Note right of KC: .keycloak-passwords
+    S->>C: up -d --wait
+    S->>S: health checks
+    Note right of S: не curl Router :30115/health/ready
+  end

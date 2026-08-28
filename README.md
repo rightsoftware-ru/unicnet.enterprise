@@ -3,20 +3,7 @@ UnicNet
 
 ## Развёртывание
 
-Рабочий каталог стенда — корень репозитория. Инструкция: [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
-
-Состав: `compose.yml`, `.env.example`, `install.sh`, `bootstrap-vault.sh`, `vault-values.example.json`, `keycloak-import/unicnet-realm.json`, диаграммы в `diagrams/`.
-
-```bash
-# 1. заполните .env.example (UNIC_LICENSE_DATA, ROUTER_CIDR, …)
-cp .env.example .env
-chmod 600 .env
-# 2. docker login cr.yandex (iam или oauth) — руками
-./install.sh
-```
-
-Образы: PostgreSQL 18, Keycloak 26.7, приложения `20260825-767ceff843ca`. MongoDB нет. Лицензия — JWT в `.env`. Realm `unicnet` импортируется из поставки; пароли пользователей генерирует `install.sh`. Схема: [diagrams/architecture.svg](diagrams/architecture.svg).
-
+Инструкция по развёртыванию: [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
 
 1. Автоматизация поиска и опознания сетевых устройств по протоколам SNMP, SSH, Telnet, Redfish, IPMI. Возможность получения базовых данных от устройств, не имеющих поддержку указанных протоколов на уровне сети.
 2. Автоматизация наполнения базы данных устройств и возможность выгрузки базы в текстовые и табличные форматы

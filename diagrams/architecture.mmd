@@ -1,40 +1,73 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#e8f4fc',
+    'primaryTextColor': '#1a365d',
+    'primaryBorderColor': '#2b6cb0',
+    'secondaryColor': '#f0fff4',
+    'secondaryTextColor': '#234e52',
+    'secondaryBorderColor': '#319795',
+    'tertiaryColor': '#faf5ff',
+    'tertiaryTextColor': '#553c9a',
+    'tertiaryBorderColor': '#805ad5',
+    'lineColor': '#4a5568',
+    'fontFamily': 'Segoe UI, system-ui, sans-serif',
+    'fontSize': '14px'
+  },
+  'flowchart': { 'curve': 'basis', 'padding': 16, 'nodeSpacing': 40, 'rankSpacing': 55 }
+}}%%
 flowchart TB
-  browser[Browser]
+  classDef ext fill:#fff5f5,stroke:#e53e3e,stroke-width:2px,color:#742a2a
+  classDef app fill:#ebf8ff,stroke:#3182ce,stroke-width:2px,color:#1a365d
+  classDef platform fill:#faf5ff,stroke:#805ad5,stroke-width:2px,color:#44337a
+  classDef data fill:#e6fffa,stroke:#319795,stroke-width:2px,color:#234e52
+  classDef registry fill:#fffaf0,stroke:#dd6b20,stroke-width:2px,color:#7b341e
 
-  subgraph host["Host /opt/unicnet.enterprise"]
-    front["Frontend :8080"]
-    back["Backend :30111"]
-    router["Router :30115"]
-    syslog["SysLog :8001 / 514 UDP"]
-    logger["Logger :8082"]
-    vault["Vault 127.0.0.1:8200"]
-    kc["Keycloak :8095"]
-    pg[("PostgreSQL 18\ninternal only")]
+  browser["🌐 Browser<br/><small>UI :8080 · OIDC</small>"]:::ext
+  license["☁ license.unic.chat<br/><small>JWT license API</small>"]:::ext
+  devices["🔌 Network devices<br/><small>SSH · SNMP · syslog</small>"]:::ext
+  ycr["📦 cr.yandex<br/><small>container images</small>"]:::registry
+
+  subgraph host["🖥 Host — compose project unicnet"]
+    direction TB
+
+    subgraph apps["Application services"]
+      direction LR
+      front["Frontend<br/><small>:8080</small>"]:::app
+      back["Backend<br/><small>:30111</small>"]:::app
+      router["Router<br/><small>:30115</small>"]:::app
+      logger["Logger<br/><small>:8082</small>"]:::app
+      syslog["SysLog<br/><small>:8001 · :514 UDP</small>"]:::app
+    end
+
+    subgraph platform["Platform"]
+      direction LR
+      kc["Keycloak 26<br/><small>:8095 · realm unicnet</small>"]:::platform
+      vault["Unic.Vault<br/><small>127.0.0.1:8200</small>"]:::platform
+    end
+
+    pg[("PostgreSQL 18<br/><small>unicnet_postgres-data</small>")]:::data
   end
-
-  license["license.unic.chat"]
-  ycr["cr.yandex"]
-  devices[Network devices]
 
   browser -->|"HTTP"| front
   browser -->|"OIDC"| kc
   front --> back
   front --> vault
-  front -->|"UniCommLicenseData JWT"| license
+  front -->|"UniCommLicenseData"| license
   back --> vault
   back --> logger
   back --> router
   back --> syslog
   back --> kc
+  back --> pg
   router --> back
   router --> logger
   router --> syslog
   router --> kc
-  router -->|"ROUTER_CIDR SSH SNMP Telnet"| devices
-  devices -->|"syslog 514/601"| syslog
+  router -->|"ROUTER_CIDR"| devices
+  devices -->|"syslog"| syslog
   logger --> pg
   syslog --> pg
-  back --> pg
   vault --> pg
   kc --> pg
   host -.->|"docker pull"| ycr
