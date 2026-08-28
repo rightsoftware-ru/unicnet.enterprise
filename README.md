@@ -3,11 +3,19 @@ UnicNet
 
 ## Развёртывание
 
-Рабочий каталог стенда — корень репозитория. Актуальная инструкция: [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
+Рабочий каталог стенда — корень репозитория. Инструкция: [INITIAL_DEPLOYMENT.md](INITIAL_DEPLOYMENT.md).
 
-Состав: `compose.yml`, `.env.example`, `bootstrap-vault.sh`, `vault-values.example.json`, `keycloak-import/unicnet-realm.json`.
+Состав: `compose.yml`, `.env.example`, `install.sh`, `bootstrap-vault.sh`, `vault-values.example.json`, `keycloak-import/unicnet-realm.json`, диаграммы в `diagrams/`.
 
-Образы: PostgreSQL 18, Keycloak 26.7, прикладные сервисы с тегом `20260825-767ceff843ca`. MongoDB и старый `install.sh` в этой поставке нет.
+```bash
+# 1. заполните .env.example (UNIC_LICENSE_DATA, ROUTER_CIDR, …)
+cp .env.example .env
+chmod 600 .env
+# 2. docker login cr.yandex (iam или oauth) — руками
+./install.sh
+```
+
+Образы: PostgreSQL 18, Keycloak 26.7, приложения `20260825-767ceff843ca`. MongoDB нет. Лицензия — JWT в `.env`. Realm `unicnet` импортируется из поставки; пароли пользователей генерирует `install.sh`. Схема: [diagrams/architecture.svg](diagrams/architecture.svg).
 
 
 1. Автоматизация поиска и опознания сетевых устройств по протоколам SNMP, SSH, Telnet, Redfish, IPMI. Возможность получения базовых данных от устройств, не имеющих поддержку указанных протоколов на уровне сети.
@@ -27,5 +35,5 @@ Mikrotik, Cisco, D-link, Tp-link, Eltex, HP, Huawei, Juniper, Vipnet, Векто
 12. Интеграция доступных модулей системы с Zabbix и Ansible, открытое API для внешних интеграций. Документация и консультация по работе с API слоем.
 Инструкция по использованию UnicNet
 https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/User.Guide.UnicNet.v1.9.docx
-Инструкция по развёртыванию демонстрационной версии UnicNet
-https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/install_all_in_one_instructions.md
+Инструкция по развёртыванию UnicNet
+https://github.com/rightsoftware-ru/unicnet.enterprise/blob/main/INITIAL_DEPLOYMENT.md

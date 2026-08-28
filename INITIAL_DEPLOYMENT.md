@@ -1,134 +1,156 @@
 # Первоначальное развёртывание UnicNet
 
-Инструкция рассчитана на Linux-хост с Docker Engine и Docker Compose v2. Все прикладные настройки сначала записываются в `Unic.Vault`, и только после этого запускаются Logger, Router, SysLog, Backend и Frontend.
+Один Linux-хост, Docker Engine 24+, Compose v2. Рабочий каталог — корень репозитория (на стенде `/opt/unicnet.enterprise`).
 
-## Состав поставки
+`install.sh` поднимает стек. Он **не** создаёт `.env` и **не** логинится в Yandex Container Registry. Это делают руками, затем запускают скрипт.
 
-| Компонент | Образ |
-|---|---|
-| PostgreSQL 18 | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:18` |
-| Keycloak 26.7.0 | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:26.7.0` |
-| Vault | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:20260825-767ceff843ca` |
-| Logger | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:20260825-767ceff843ca` |
-| Router | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:20260825-767ceff843ca` |
-| SysLog | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:20260825-767ceff843ca` |
-| Backend | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:20260825-767ceff843ca` |
-| Frontend | `cr.yandex/crpi5ll6mqcn793fvu9i/unic/unfront:20260825-767ceff843ca` |
+MongoDB и RabbitMQ в этой поставке нет. Данные — PostgreSQL 18. Секреты приложений — Unic.Vault. Лицензия Front/Backend/Router — JWT в `.env` (`UNIC_LICENSE_DATA`).
 
-Для прикладных образов также опубликован подвижный тег `prod`. Для предсказуемого первого запуска и отката рекомендуется оставлять зафиксированный тег из таблицы.
+Диаграммы: [architecture.svg](diagrams/architecture.svg), исходники [architecture.mmd](diagrams/architecture.mmd) и [install-flow.mmd](diagrams/install-flow.mmd).
 
-`Unic.Acl` и `Unic.Storage.Client` являются библиотеками, а не самостоятельными процессами: ACL включён в Backend и Frontend, Storage-клиент — в Backend, SysLog, Logger и Vault. Отдельные образы для них не нужны.
+## Архитектура
 
-## 1. Подготовка хоста
-
-Нужны Docker Engine 24+, Compose v2, `curl` и `jq`. Скопируйте каталог `deploy/unicnet` на хост и перейдите в него.
-
-Авторизуйтесь в Yandex Container Registry IAM-токеном сервисного аккаунта с правом pull:
-
-```bash
-docker login --username iam --password-stdin cr.yandex <<<"$YC_IAM_TOKEN"
-docker compose --env-file .env -f compose.yml pull
+```mermaid
+flowchart TB
+  browser[Browser]
+  subgraph host["Host"]
+    front["Frontend :8080"]
+    back["Backend :30111"]
+    router["Router :30115"]
+    syslog["SysLog :8001 / 514 UDP"]
+    logger["Logger :8082"]
+    vault["Vault 127.0.0.1:8200"]
+    kc["Keycloak :8095"]
+    pg[("PostgreSQL 18")]
+  end
+  license["license.unic.chat"]
+  devices[Network devices]
+  browser --> front
+  browser --> kc
+  front --> back
+  front --> vault
+  front --> license
+  back --> vault
+  back --> logger
+  back --> router
+  back --> syslog
+  back --> kc
+  back --> pg
+  vault --> pg
+  kc --> pg
+  logger --> pg
+  syslog --> pg
+  router --> devices
+  devices --> syslog
 ```
 
-Создайте закрытый bootstrap-файл:
+Клиентам Vault в compose передаются только `Vault__Url` и параметры подписи JWT. PostgreSQL и Vault получают bootstrap из `.env`. Исключение: JWT лицензии пробрасывается в Front, Backend и Router как `UniCommLicenseData` (у Router ещё `Router__License__Data`).
+
+Realm `unicnet` уже в `keycloak-import/unicnet-realm.json`: клиент `FrontUiV2`, группы `unicnet_admin_group` / `unicnet_superuser_group` / `unicnet_user_group`, пользователь `unicadmin`. Паролей в JSON нет.
+
+Образы: `pg:18`, `keycloak:26.7.0`, приложения `20260825-767ceff843ca` (`UNICNET_IMAGE_TAG`). Плавающий тег `prod` для первого запуска не используйте.
+
+Не коммитьте `.env`, `vault-values.json`, `.keycloak-passwords`, `.unicadmin-password`, токены YCR.
+
+## Порядок установки
+
+Совпадает с `./install.sh --help`.
+
+### 1. Заполнить `.env.example`
+
+Нужны Docker (группа `docker`), `curl`, `jq`, `python3`.
+
+Правите **`.env.example`**, не создавая `.env` заранее. Не оставляйте `replace_*`.
+
+| Переменная | Назначение |
+|---|---|
+| `POSTGRES_*` | БД, пользователь, пароль. В Vault уйдут с `Host=pg` |
+| `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` | Админ realm `master` |
+| `KEYCLOAK_PUBLIC_URL` | `http://<ip-хоста>:8095` — и браузер, и Backend/Router. Не `localhost`, если заходят с другой машины |
+| `VAULT_JWT_SIGNING_KEY` | ≥ 32 символов: `openssl rand -base64 48` |
+| `VAULT_JWT_ISSUER` | `UniComm PRO Software` |
+| `UNIC_LICENSE_DATA` | JWT, начинается с `eyJ`. `GET https://license.unic.chat/api/lic` с Bearer должен дать 200 |
+| `API_LICENSE_URL` | `https://license.unic.chat/` |
+| `ROUTER_CIDR` | Сеть хоста, например `10.0.26.0/24` |
+
+Старый Solid-блоб `UnicLicense` Front не принимает.
+
+### 2. Скопировать env
 
 ```bash
 cp .env.example .env
 chmod 600 .env
 ```
 
-В `.env` перенесите текущие имя БД, пользователя и пароль PostgreSQL, текущие реквизиты администратора Keycloak и публичный URL Keycloak. Создайте отдельный production-ключ `VAULT_JWT_SIGNING_KEY` длиной не менее 32 символов, например `openssl rand -base64 48`. Один и тот же ключ должен использоваться Vault и всеми его клиентами.
+Если `.env` нет или в нём `replace_*`, скрипт останавливается и ничего не дописывает.
 
-Важное исключение из правила хранения ENV в Vault: PostgreSQL должен получить свои bootstrap-реквизиты до запуска Vault, а Vault должен напрямую получить строку подключения и параметры подписи JWT до первого обращения к собственной БД. Клиентам Vault напрямую передаются только `Vault__Url`, `Vault__Jwt__SigningKey`, `Vault__Jwt__Issuer` и `Vault__Jwt__Audience`; все прикладные значения находятся в Vault.
+### 3. Войти в registry вручную
 
-## 2. Подготовка Keycloak
-
-Положите актуальный экспорт realm `unicnet` в `keycloak-import/unicnet-realm.json`. Экспорт должен содержать клиент `FrontUiV2`, роли и группы; пароли пользователей при обычном partial export не переносятся и должны быть назначены отдельно.
-
-Публичный адрес из `KEYCLOAK_PUBLIC_URL` должен быть доступен и браузерам пользователей, и контейнеру Backend. Для текущего стенда это адрес вида `http://<host>:8095`.
-
-## 3. Первый запуск PostgreSQL, Keycloak и Vault
+У того же пользователя, от которого пойдёт compose:
 
 ```bash
-docker compose --env-file .env -f compose.yml up -d pg keycloak vault
-docker compose --env-file .env -f compose.yml ps
-curl --fail http://127.0.0.1:8200/openapi/v1.json >/dev/null
+docker login --username iam --password-stdin cr.yandex <<<"$YC_IAM_TOKEN"
+# или
+docker login --username oauth --password-stdin cr.yandex
 ```
 
-Не запускайте весь граф до заполнения Vault: сервисы идентифицируются отдельными JWT-владельцами и увидят только свои секреты.
-
-## 4. Загрузка текущих настроек в Vault
+### 4. Запустить скрипт
 
 ```bash
-cp vault-values.example.json vault-values.json
-chmod 600 vault-values.json
+chmod +x install.sh bootstrap-vault.sh
+./install.sh
 ```
 
-Заполните `vault-values.json` текущими значениями из следующих профилей разработки:
+```mermaid
+sequenceDiagram
+  actor Op as Operator
+  participant S as install.sh
+  participant C as compose
+  participant V as Vault
+  participant KC as Keycloak
+  Op->>Op: .env.example → .env, docker login
+  Op->>S: ./install.sh
+  S->>C: pull
+  S->>C: up pg keycloak vault
+  S->>V: bootstrap-vault.sh
+  S->>KC: пароли пользователей realm
+  S->>C: up --wait
+  S->>S: check Front Backend SysLog Keycloak
+```
 
-| Владелец Vault | Источник текущих значений |
-|---|---|
-| `Unic.Logger` | `UnicSharedLib/Unic.Logger/Properties/launchSettings.json`, профиль `http_un` |
-| `UnicNet.SysLog` | `UnicNet/UnicNet.SysLog/Properties/launchSettings.json` и та же строка PostgreSQL |
-| `UnicNet.Router` | `UnicNet/UnicNet.Router/Properties/launchSettings.json` |
-| `UnicNet.Backend` | `UnicNet/UnicNet.Backend/Properties/launchSettings.json` |
-| `UNFrontV2` | `UnicNet/UnicNet.Front/Properties/launchSettings.json` |
+Что делает скрипт:
 
-Секретные значения в Git не дублируйте. При переносе строки PostgreSQL сохраните текущие database/user/password, но замените `Host` на Docker DNS-имя `pg`. Локальные URL замените на имена контейнеров из шаблона; URL Keycloak — на `KEYCLOAK_PUBLIC_URL`. Для `Router__Cidr` укажите реальную сеть интерфейса хоста, например значение из `ip -4 route`.
+1. Проверяет `.env` (в том числе JWT и `ROUTER_CIDR`).
+2. Собирает `vault-values.json` из примера и `.env`, если файла ещё нет.
+3. `docker compose pull`.
+4. Поднимает `pg`, `keycloak`, `vault`.
+5. Грузит секреты в Vault. Токен Vault — raw JWT, не JSON; через `jq` его нельзя прогонять.
+6. Для каждого пользователя из realm JSON пишет пароль в `.keycloak-passwords` (unicadmin дублируется в `.unicadmin-password`). Повторный запуск уже записанные пароли не меняет.
+7. Поднимает весь граф `--wait`.
+8. Проверяет Front `:8080`, Backend `:30111/health/ready`, SysLog `:8001/health/live`, Keycloak realm. **Не** вызывает `:30115/health/ready` — это рвёт WSS Router.
 
-Загрузите или обновите секреты. Скрипт получает отдельный сервисный JWT для каждого владельца, не печатает значения и делает upsert по имени:
+Флаги: `--skip-pull`, `--render-vault`, `--skip-unicadmin`, `--only=core|vault|unicadmin|stack|check`.
+
+После успеха UI `http://<host>:8080/` — `unicadmin`, пароль в `.keycloak-passwords`. Админка Keycloak `:8095` — учётка из `.env`.
+
+## Обновление лицензии
+
+Вписать JWT в `.env.example`, снова `cp .env.example .env` (или поправить `.env`), затем:
 
 ```bash
-chmod +x bootstrap-vault.sh
-./bootstrap-vault.sh vault-values.json
+./install.sh --render-vault --skip-pull
 ```
 
-После успешной загрузки удалите временный файл с открытыми значениями либо перенесите его в утверждённое защищённое хранилище:
+Лицензия продукта не умеет `/api/lic/new` и `/api/lic/all` (403). Баннер «Отсутствует активная лицензия» при живом JWT: сервер не знает id или в токене только модули `uc.*`.
 
-```bash
-shred -u vault-values.json
-```
+## Обновление образов
 
-## 5. Запуск полного графа
+Сменить `UNICNET_IMAGE_TAG` в `.env.example`, скопировать в `.env`, `./install.sh`. Откат — предыдущий тег. Данные в volume `unicnet_postgres-data`; перед обновлением `pg_dump`.
 
-```bash
-docker compose --env-file .env -f compose.yml up -d --wait
-docker compose --env-file .env -f compose.yml ps
-```
-
-Проверки с Docker-хоста:
-
-```bash
-curl --fail http://127.0.0.1:8080/
-curl --fail http://127.0.0.1:30111/health/ready
-curl --fail http://127.0.0.1:30115/health/ready
-curl --fail http://127.0.0.1:8001/health/live
-curl --fail http://127.0.0.1:8095/realms/unicnet/.well-known/openid-configuration
-```
-
-Если сервис не стал healthy, сначала проверьте загрузку его Vault-владельца и только затем логи:
-
-```bash
-docker compose --env-file .env -f compose.yml logs --tail=200 vault logger router syslog backend frontend
-```
-
-## 6. Обновление и откат
-
-Для обновления измените `UNICNET_IMAGE_TAG` в `.env`, затем выполните:
-
-```bash
-docker compose --env-file .env -f compose.yml pull
-docker compose --env-file .env -f compose.yml up -d --wait
-```
-
-Для отката верните предыдущий неизменяемый тег и повторите те же команды. Данные PostgreSQL сохраняются в named volume `unicnet_postgres-data`; перед обновлением сделайте резервную копию БД.
-
-## 7. Воспроизводимая сборка образов
-
-Все прикладные образы этой поставки собраны без provenance-аттестации. При ручной пересборке обязательно сохраняйте флаг:
+## Сборка образов
 
 ```bash
 docker build --provenance=false -f UnicNet/UnicNet.Backend/Dockerfile .
 ```
 
-Для Backend, Frontend, Router и SysLog build context — корень `UniComm.app`; для Logger и Vault — каталог `UnicSharedLib`.
+Backend, Frontend, Router, SysLog — context `UniComm.app`; Logger и Vault — `UnicSharedLib`.

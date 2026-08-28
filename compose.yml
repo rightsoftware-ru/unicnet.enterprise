@@ -92,7 +92,11 @@ services:
   router:
     image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
     restart: unless-stopped
-    environment: *vault-client-environment
+    environment:
+      <<: *vault-client-environment
+      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
+      Router__License__Data: ${UNIC_LICENSE_DATA}
+      Api_License_Url: ${API_LICENSE_URL:-https://license.unic.chat/}
     ports:
       - "30115:8080"
     depends_on:
@@ -132,7 +136,10 @@ services:
   backend:
     image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
     restart: unless-stopped
-    environment: *vault-client-environment
+    environment:
+      <<: *vault-client-environment
+      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
+      Api_License_Url: ${API_LICENSE_URL:-https://license.unic.chat/}
     ports:
       - "30111:8080"
     depends_on:
@@ -159,6 +166,8 @@ services:
     environment:
       <<: *vault-client-environment
       api.vault.name: UNFrontV2
+      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
+      Api_License_Url: ${API_LICENSE_URL:-https://license.unic.chat/}
     ports:
       - "8080:8080"
     depends_on:

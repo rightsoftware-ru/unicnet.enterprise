@@ -481,13 +481,6 @@
       "firstName": "UnicNet",
       "lastName": "Administrator",
       "email": "unicadmin@local.com",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "temp_password_will_be_changed_by_script",
-          "temporary": false
-        }
-      ],
       "disableableCredentialTypes": [],
       "requiredActions": [],
       "realmRoles": [],

@@ -1,0 +1,23 @@
+sequenceDiagram
+  actor Op as Operator
+  participant Env as .env.example
+  participant YCR as cr.yandex
+  participant S as install.sh
+  participant C as compose
+  participant V as Vault
+  participant KC as Keycloak
+
+  Op->>Env: fill secrets, JWT license, ROUTER_CIDR
+  Op->>Op: cp .env.example .env && chmod 600
+  Op->>YCR: docker login iam or oauth
+  Op->>S: ./install.sh
+  S->>S: require .env (no create, no login)
+  S->>S: render vault-values.json if missing
+  S->>C: pull
+  S->>C: up pg keycloak vault
+  S->>V: bootstrap-vault.sh
+  S->>KC: passwords for realm JSON users
+  Note over S,KC: .keycloak-passwords
+  S->>C: up -d --wait
+  S->>S: check Front Backend SysLog Keycloak
+  Note over S: do not curl Router :30115/health/ready

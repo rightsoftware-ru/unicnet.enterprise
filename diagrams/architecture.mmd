@@ -1,0 +1,40 @@
+flowchart TB
+  browser[Browser]
+
+  subgraph host["Host /opt/unicnet.enterprise"]
+    front["Frontend :8080"]
+    back["Backend :30111"]
+    router["Router :30115"]
+    syslog["SysLog :8001 / 514 UDP"]
+    logger["Logger :8082"]
+    vault["Vault 127.0.0.1:8200"]
+    kc["Keycloak :8095"]
+    pg[("PostgreSQL 18\ninternal only")]
+  end
+
+  license["license.unic.chat"]
+  ycr["cr.yandex"]
+  devices[Network devices]
+
+  browser -->|"HTTP"| front
+  browser -->|"OIDC"| kc
+  front --> back
+  front --> vault
+  front -->|"UniCommLicenseData JWT"| license
+  back --> vault
+  back --> logger
+  back --> router
+  back --> syslog
+  back --> kc
+  router --> back
+  router --> logger
+  router --> syslog
+  router --> kc
+  router -->|"ROUTER_CIDR SSH SNMP Telnet"| devices
+  devices -->|"syslog 514/601"| syslog
+  logger --> pg
+  syslog --> pg
+  back --> pg
+  vault --> pg
+  kc --> pg
+  host -.->|"docker pull"| ycr
