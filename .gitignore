@@ -1,4 +1,6 @@
 .env
 vault-values.json
-.ycr_token
+
 .unicadmin-password
+.keycloak-passwords
+.ycr_token
