@@ -42,7 +42,8 @@ Then:
 
 The script checks .env, builds vault-values.json if missing, pulls images,
 starts pg/keycloak/vault, loads Vault, sets passwords for realm users,
-starts the full graph, and checks Front/Backend/SysLog/Keycloak.
+starts the full graph, checks Front/Backend/SysLog/Keycloak and runs
+smoke-test.sh (a Vault token must be accepted by Backend and SysLog).
 
 Options:
   --skip-pull           Do not docker compose pull
@@ -52,7 +53,8 @@ Options:
   --only=vault          Only bootstrap Vault
   --only=unicadmin      Only set realm user passwords
   --only=stack          Only start the full compose graph
-  --only=check          Only health checks
+  --only=check          Only health checks (includes smoke test)
+  --only=smoke          Only the token smoke test (smoke-test.sh)
   -h, --help            Show this help
 
 Generated (chmod 600, not for git):
@@ -489,8 +491,14 @@ phase_check() {
     echo "Frontend is missing UniCommLicenseData env" >&2
     exit 1
   fi
+  phase_smoke
   log "OK. UI http://$(hostname -I | awk '{print $1}'):8080/  user unicadmin, passwords in .keycloak-passwords"
   log "Do not curl http://127.0.0.1:30115/health/ready — Router HTTP health resets the WSS tunnel."
+}
+
+phase_smoke() {
+  log "token smoke test"
+  ./smoke-test.sh
 }
 
 case "$ONLY" in
@@ -510,5 +518,6 @@ case "$ONLY" in
   unicadmin) phase_prep; set_unicadmin ;;
   stack) phase_prep; phase_stack ;;
   check) phase_check ;;
+  smoke) phase_smoke ;;
   *) echo "Unknown --only=$ONLY" >&2; exit 1 ;;
 esac
