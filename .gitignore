@@ -4,3 +4,4 @@ vault-values.json
 .unicadmin-password
 .keycloak-passwords
 .ycr_token
+.license-swagger.*
