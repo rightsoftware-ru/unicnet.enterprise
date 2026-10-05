@@ -134,6 +134,25 @@ require_env() {
       missing=1
     fi
   done
+  for key in \
+    PG_IMAGE_TAG KEYCLOAK_IMAGE_TAG UNICVAULT_IMAGE_TAG UNICLOGGER_IMAGE_TAG \
+    UNICNETROUTER_IMAGE_TAG UNICNETSYSLOG_IMAGE_TAG UNICNETBACKEND_IMAGE_TAG \
+    UNICNETFRONT_IMAGE_TAG
+  do
+    if ! val="$(env_get "$key" 2>/dev/null)" || [[ -z "$val" || "$val" == replace* ]]; then
+      echo "Set $key in .env (immutable tag or <tag>@sha256:<digest>)" >&2
+      missing=1
+      continue
+    fi
+    if [[ "$val" =~ ^(dev|prod|latest|stable)$ ]]; then
+      echo "$key=$val is a floating tag. Pin it: $val@sha256:<digest> or a dated tag" >&2
+      missing=1
+    fi
+  done
+  if env_get UNICNET_IMAGE_TAG >/dev/null 2>&1 || env_get UNFRONT_IMAGE_TAG >/dev/null 2>&1; then
+    echo "UNICNET_IMAGE_TAG / UNFRONT_IMAGE_TAG are obsolete: use per-service *_IMAGE_TAG, frontend is UNICNETFRONT_IMAGE_TAG" >&2
+    missing=1
+  fi
   if [[ "$missing" -ne 0 ]]; then
     exit 1
   fi

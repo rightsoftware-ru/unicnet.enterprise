@@ -10,7 +10,7 @@ x-vault-client-environment: &vault-client-environment
 
 services:
   pg:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:${PG_IMAGE_TAG:-18}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:${PG_IMAGE_TAG:?Set PG_IMAGE_TAG in .env}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
@@ -27,7 +27,7 @@ services:
     networks: [unicnet]
 
   keycloak:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:${KEYCLOAK_IMAGE_TAG:-26.7.0}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:${KEYCLOAK_IMAGE_TAG:?Set KEYCLOAK_IMAGE_TAG in .env}
     restart: unless-stopped
     command: start --import-realm
     environment:
@@ -50,7 +50,7 @@ services:
     networks: [unicnet]
 
   vault:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICVAULT_IMAGE_TAG:?Set UNICVAULT_IMAGE_TAG in .env}
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -74,7 +74,7 @@ services:
     networks: [unicnet]
 
   logger:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICLOGGER_IMAGE_TAG:?Set UNICLOGGER_IMAGE_TAG in .env}
     restart: unless-stopped
     environment: *vault-client-environment
     ports:
@@ -90,7 +90,7 @@ services:
     networks: [unicnet]
 
   router:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNETROUTER_IMAGE_TAG:?Set UNICNETROUTER_IMAGE_TAG in .env}
     restart: unless-stopped
     environment:
       <<: *vault-client-environment
@@ -112,9 +112,14 @@ services:
     networks: [unicnet]
 
   syslog:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNETSYSLOG_IMAGE_TAG:?Set UNICNETSYSLOG_IMAGE_TAG in .env}
     restart: unless-stopped
-    environment: *vault-client-environment
+    environment:
+      <<: *vault-client-environment
+      # Without it SysLog silently validates bearers with a key built into the image and answers 401.
+      SysLog__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
+      SysLog__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
+      SysLog__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
     ports:
       - "8001:8080"
       - "514:514/udp"
@@ -134,12 +139,15 @@ services:
     networks: [unicnet]
 
   backend:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNETBACKEND_IMAGE_TAG:?Set UNICNETBACKEND_IMAGE_TAG in .env}
     restart: unless-stopped
     environment:
       <<: *vault-client-environment
       UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
       Api_License_Url: ${API_LICENSE_URL:-https://license.unic.chat/}
+      Keycloak__ApplicationJwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
+      Keycloak__ApplicationJwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
+      Keycloak__ApplicationJwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
     ports:
       - "30111:8080"
     depends_on:
@@ -161,7 +169,7 @@ services:
     networks: [unicnet]
 
   frontend:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unfront:${UNICNET_IMAGE_TAG:-20260825-767ceff843ca}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:${UNICNETFRONT_IMAGE_TAG:?Set UNICNETFRONT_IMAGE_TAG in .env}
     restart: unless-stopped
     environment:
       <<: *vault-client-environment
