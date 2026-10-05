@@ -25,7 +25,9 @@
 | Права | пользователь в группе `docker` |
 | Сеть | доступ к `cr.yandex` (образы) и `license.unic.chat` (лицензия) |
 
-Образы по умолчанию: PostgreSQL `18`, Keycloak `26.7.0`, приложения UnicNet `20260825-767ceff843ca` (тег `UNICNET_IMAGE_TAG`). Для первого запуска используйте фиксированный тег, не плавающий `prod`.
+Образы: PostgreSQL `18`, Keycloak `26.7.0`, приложения UnicNet закреплены в `.env.example` отдельной переменной на каждый сервис (см. [Теги образов](#теги-образов)).
+
+> **Frontend переехал в репозиторий `unic/unicnetfront`.** В `unic/unfront` под тегом `dev` лежит старый UN.Front: он не передаёт токен в Backend и ждёт конфигурацию в старом формате Vault, поэтому UI показывает пустые списки. `unic/unfront` не использовать.
 
 ## Состав поставки
 
@@ -34,6 +36,7 @@
 | `compose.yml` | описание стека Docker Compose |
 | `.env.example` | шаблон переменных окружения |
 | `install.sh` | автоматическая установка и обновление |
+| `smoke-test.sh` | проверка, что Backend и SysLog принимают токен Vault |
 | `bootstrap-vault.sh` | загрузка секретов в Unic.Vault |
 | `vault-values.example.json` | шаблон конфигурации для Vault |
 | `keycloak-import/unicnet-realm.json` | realm `unicnet` (клиент, группы, пользователи) |
@@ -158,6 +161,7 @@ sequenceDiagram
 6. Для каждого пользователя из `unicnet-realm.json` генерирует пароль и записывает в `.keycloak-passwords` (для `unicadmin` также `.unicadmin-password`). При повторном запуске уже записанные пароли не меняются.
 7. Поднимает весь стек: `docker compose up -d --wait`.
 8. Проверяет доступность Frontend, Backend, SysLog и Keycloak.
+9. Запускает `smoke-test.sh`: токен Vault должен давать 200, запрос без токена — 401.
 
 ### Опции `install.sh`
 
@@ -170,7 +174,8 @@ sequenceDiagram
 | `--only=vault` | только загрузка Vault |
 | `--only=unicadmin` | только пароли пользователей |
 | `--only=stack` | только запуск полного стека |
-| `--only=check` | только проверки |
+| `--only=check` | только проверки (включая smoke-тест) |
+| `--only=smoke` | только smoke-тест токенов |
 | `-h`, `--help` | справка |
 
 После успешной установки:
@@ -255,6 +260,33 @@ docker compose --env-file .env -f compose.yml up -d --wait
 | Keycloak | `http://127.0.0.1:8095/realms/unicnet/.well-known/openid-configuration` |
 | Router | **не** вызывать `http://127.0.0.1:30115/health/ready` — HTTP healthcheck сбрасывает WSS-туннель Router |
 
+### Healthcheck контейнеров
+
+В образах нет `curl`/`wget`, поэтому проверки идут через `bash /dev/tcp` и требуют ровно `200`. Проверка «процесс жив» (`pidof dotnet`) не годится: сервис может быть запущен, но не обслуживать запросы.
+
+| Сервис | Проверка в `compose.yml` |
+|---|---|
+| pg | `pg_isready` |
+| keycloak | `GET /health/ready` на порту управления `9000` |
+| vault | `GET /openapi/v1.json` (curl) |
+| logger | `GET /openapi/v1.json` (своего `/health` нет) |
+| syslog | `GET /health/live` |
+| backend | `GET /health/ready` |
+| frontend | `GET /health/ready` |
+| router | `pidof dotnet` — временно: HTTP health сбрасывает туннель, нужен безопасный эндпоинт от разработки |
+
+### Smoke-тест токенов
+
+Healthcheck не видит расхождения ключей подписи JWT: сервис здоров, но отвечает 401 на любой настоящий токен (в логах `IDX10517`). Так было с SysLog без `SysLog__Jwt__SigningKey`: он молча брал ключ, зашитый в образ.
+
+```bash
+./smoke-test.sh
+# [smoke] backend  OK   (token=200 anonymous=401)
+# [smoke] syslog   OK   (token=200 anonymous=401)
+```
+
+Если `token=401` — сверить `*__Jwt__SigningKey/Issuer/Audience` сервиса с `VAULT_JWT_*` в `.env`.
+
 Проверить, что Frontend получил лицензию:
 
 ```bash
@@ -288,10 +320,35 @@ curl -fsS -H "Authorization: Bearer $UNIC_LICENSE_DATA" \
 
 ## Обновление образов
 
-1. Указать новый `UNICNET_IMAGE_TAG` (и при необходимости `PG_IMAGE_TAG`, `KEYCLOAK_IMAGE_TAG`) в `.env.example`.
+1. Указать новые значения `<IMAGE>_IMAGE_TAG` в `.env.example` (только неизменяемые, см. ниже).
 2. Скопировать в `.env`: `cp .env.example .env`.
-3. Запустить `./install.sh`.
+3. Запустить `./install.sh` (в конце — healthcheck и smoke-тест).
 
-Откат — вернуть предыдущий тег и снова выполнить `./install.sh`. Данные PostgreSQL в volume `unicnet_postgres-data`; перед обновлением сделайте `pg_dump`.
+Откат — вернуть предыдущие значения тегов и снова выполнить `./install.sh`.
+
+### Теги образов
+
+| Переменная | Репозиторий `cr.yandex/crpi5ll6mqcn793fvu9i/unic/…` |
+|---|---|
+| `PG_IMAGE_TAG` | `pg` |
+| `KEYCLOAK_IMAGE_TAG` | `keycloak` |
+| `UNICVAULT_IMAGE_TAG` | `unicvault` |
+| `UNICLOGGER_IMAGE_TAG` | `uniclogger` |
+| `UNICNETROUTER_IMAGE_TAG` | `unicnetrouter` |
+| `UNICNETSYSLOG_IMAGE_TAG` | `unicnetsyslog` |
+| `UNICNETBACKEND_IMAGE_TAG` | `unicnetbackend` |
+| `UNICNETFRONT_IMAGE_TAG` | `unicnetfront` (не `unfront`) |
+
+Правила:
+
+- Только неизменяемые ссылки: датированный тег (`20260825-767ceff843ca`) или закрепление по digest (`dev@sha256:<digest>`). `install.sh` отказывается работать с голыми `dev`, `prod`, `latest`, `stable`.
+- У `unicnetfront` и `unicvault` пока нет датированных тегов (у `unicvault` нет и `20260825-767ceff843ca`), поэтому они закреплены по digest.
+- `UNICNET_IMAGE_TAG` и `UNFRONT_IMAGE_TAG` устарели, `install.sh` на них останавливается.
+
+Digest текущего тега:
+
+```bash
+docker buildx imagetools inspect cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:dev --format '{{json .Manifest.Digest}}'
+``` Данные PostgreSQL в volume `unicnet_postgres-data`; перед обновлением сделайте `pg_dump`.
 
 
