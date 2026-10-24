@@ -5,3 +5,14 @@ vault-values.json
 .keycloak-passwords
 .ycr_token
 .license-swagger.*
+
+.env
+!.env.example
+license.txt
+infrastructure.json
+frontend-settings.json
+initial-admin.json
+__pycache__/
+
+__pycache__/
+*.pyc

@@ -1,0 +1,4 @@
+{
+  "postgres": {"mode": "managed"},
+  "keycloak": {"mode": "managed"}
+}

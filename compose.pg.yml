@@ -1,0 +1,25 @@
+services:
+  prepare:
+    environment:
+      UNICNET_PG_MODE: managed
+  pg:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:${PG_IMAGE_TAG:-18}
+    user: "0"
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoints/postgres.sh"]
+    volumes:
+      - pg-config:/run/unicnet:ro
+      - ./entrypoints/postgres.sh:/entrypoints/postgres.sh:ro
+      - postgres-data:/var/lib/postgresql
+    depends_on:
+      prepare: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unicnet -d unicnet"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+  database:
+    depends_on:
+      pg: {condition: service_healthy}
+volumes:
+  postgres-data:

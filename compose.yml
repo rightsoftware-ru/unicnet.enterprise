@@ -1,212 +1,162 @@
-name: unicnet
+name: unicnet-docker-test
 
-x-vault-client-environment: &vault-client-environment
-  ASPNETCORE_ENVIRONMENT: Production
-  ASPNETCORE_HTTP_PORTS: 8080
-  Vault__Url: http://vault:8080/
-  Vault__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
-  Vault__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
-  Vault__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
+x-job: &job
+  image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetinit:${UNICNET_INIT_TAG:-rc-init-test}
+  pull_policy: missing
+  restart: "no"
+  volumes:
+    - init-state:/state
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
+x-app: &app
+  restart: unless-stopped
+  stop_grace_period: 40s
+  entrypoint: ["/bin/sh", "/entrypoints/app.sh"]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  healthcheck:
+    test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
+    interval: 10s
+    timeout: 5s
+    retries: 24
 
 services:
-  pg:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/pg:${PG_IMAGE_TAG:?Set PG_IMAGE_TAG in .env}
-    restart: unless-stopped
+  prepare:
+    <<: *job
+    command: ["prepare"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      PGDATA: /var/lib/postgresql/18/docker
+      UNICNET_HOST: ${UNICNET_HOST:?Copy .env.example to .env}
+      UNICNET_CIDR: ${UNICNET_CIDR:?Set UNICNET_CIDR}
+      UNICNET_IMAGE_TAG: ${UNICNET_IMAGE_TAG:-rc-init-test}
+      UNICNET_PG_MODE: external
+      UNICNET_KC_MODE: external
     volumes:
-      - postgres-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    networks: [unicnet]
+      - init-state:/state
+      - pg-config:/configs/pg
+      - keycloak-config:/configs/keycloak
+      - vault-config:/configs/vault
+      - logger-config:/configs/logger
+      - router-config:/configs/router
+      - syslog-config:/configs/syslog
+      - backend-config:/configs/backend
+      - frontend-config:/configs/frontend
+      - keycloak-import:/realm
+      - frontend-keyring:/frontend/keyring
+      - type: bind
+        source: ./license.txt
+        target: /input/license.txt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./infrastructure.json
+        target: /input/infrastructure.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./frontend-settings.json
+        target: /frontend/front.adm.cfg
+        bind: {create_host_path: false}
 
-  keycloak:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:${KEYCLOAK_IMAGE_TAG:?Set KEYCLOAK_IMAGE_TAG in .env}
-    restart: unless-stopped
-    command: start --import-realm
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?Set KEYCLOAK_ADMIN in .env}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://pg:5432/${POSTGRES_DB}
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?Set KEYCLOAK_PUBLIC_URL in .env}
-    volumes:
-      - ./keycloak-import:/opt/keycloak/data/import:ro
-    ports:
-      - "8095:8080"
+  database:
+    <<: *job
+    command: ["database"]
     depends_on:
-      pg:
-        condition: service_healthy
-    healthcheck:
-      # KC_HEALTH_ENABLED serves /health/* on the management port 9000, not on 8080.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-      start_period: 60s
-    networks: [unicnet]
+      prepare: {condition: service_completed_successfully}
+
+  init:
+    <<: *job
+    command: ["init"]
+    depends_on:
+      vault: {condition: service_healthy}
 
   vault:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICVAULT_IMAGE_TAG:?Set UNICVAULT_IMAGE_TAG in .env}
-    restart: unless-stopped
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_HTTP_PORTS: 8080
-      Storage__ConnectionString: Host=pg;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Application Name=Unic.Vault
-      Storage__Schema: unicomm
-      Vault__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY}
-      Vault__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
-      Vault__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
-      UseScalar: "true"
-    ports:
-      - "127.0.0.1:8200:8080"
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["Unic.Vault.dll"]
+    volumes:
+      - vault-config:/run/unicnet:ro
+      - ./entrypoints/app.sh:/entrypoints/app.sh:ro
+    ports: ["127.0.0.1:8200:8080"]
     depends_on:
-      pg:
-        condition: service_healthy
+      database: {condition: service_completed_successfully}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/openapi/v1.json >/dev/null"]
       interval: 10s
       timeout: 5s
-      retries: 18
-      start_period: 30s
-    networks: [unicnet]
+      retries: 24
 
   logger:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICLOGGER_IMAGE_TAG:?Set UNICLOGGER_IMAGE_TAG in .env}
-    restart: unless-stopped
-    environment: *vault-client-environment
-    ports:
-      - "8082:8080"
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["Unic.Logger.dll"]
+    volumes: ["logger-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
+    ports: ["8082:8080"]
     depends_on:
-      vault:
-        condition: service_healthy
-    healthcheck:
-      # Logger has no /health endpoint yet; OpenAPI answers only when Kestrel and the app are up.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /openapi/v1.json HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
-      interval: 15s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-    networks: [unicnet]
+      init: {condition: service_completed_successfully}
 
   router:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNETROUTER_IMAGE_TAG:?Set UNICNETROUTER_IMAGE_TAG in .env}
-    restart: unless-stopped
-    environment:
-      <<: *vault-client-environment
-      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
-      Router__License__Data: ${UNIC_LICENSE_DATA}
-      Api_License_Url: ${API_LICENSE_URL:-https://service.example.org/}
-    ports:
-      - "30115:8080"
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["UnicNet.Router.dll"]
+    volumes: ["router-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
+    ports: ["30115:8080"]
     depends_on:
-      vault:
-        condition: service_healthy
-      logger:
-        condition: service_healthy
-    healthcheck:
-      # TODO(dev): Router has no safe health endpoint: HTTP health on 30115 resets its WSS tunnel.
-      test: ["CMD-SHELL", "pidof dotnet >/dev/null"]
-      interval: 15s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-    networks: [unicnet]
+      init: {condition: service_completed_successfully}
+      logger: {condition: service_healthy}
 
   syslog:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNETSYSLOG_IMAGE_TAG:?Set UNICNETSYSLOG_IMAGE_TAG in .env}
-    restart: unless-stopped
-    environment:
-      <<: *vault-client-environment
-      # Without it SysLog silently validates bearers with a key built into the image and answers 401.
-      SysLog__Jwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
-      SysLog__Jwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
-      SysLog__Jwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
-    ports:
-      - "8001:8080"
-      - "514:514/udp"
-      - "601:601"
-      - "601:601/udp"
-      - "6514:6514"
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["UnicNet.SysLog.dll"]
+    volumes: ["syslog-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
+    ports: ["8001:8080", "514:514/udp", "601:601", "601:601/udp", "6514:6514"]
     depends_on:
-      vault:
-        condition: service_healthy
-      logger:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
-      interval: 15s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-    networks: [unicnet]
+      init: {condition: service_completed_successfully}
+      logger: {condition: service_healthy}
 
   backend:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNETBACKEND_IMAGE_TAG:?Set UNICNETBACKEND_IMAGE_TAG in .env}
-    restart: unless-stopped
-    environment:
-      <<: *vault-client-environment
-      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
-      Api_License_Url: ${API_LICENSE_URL:-https://service.example.org/}
-      Keycloak__ApplicationJwt__SigningKey: ${VAULT_JWT_SIGNING_KEY:?Set VAULT_JWT_SIGNING_KEY in .env}
-      Keycloak__ApplicationJwt__Issuer: ${VAULT_JWT_ISSUER:-UniComm PRO Software}
-      Keycloak__ApplicationJwt__Audience: ${VAULT_JWT_AUDIENCE:-Service}
-    ports:
-      - "30111:8080"
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["UnicNet.Backend.dll"]
+    volumes: ["backend-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
+    ports: ["30111:8080"]
     depends_on:
-      vault:
-        condition: service_healthy
-      logger:
-        condition: service_healthy
-      router:
-        condition: service_healthy
-      syslog:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
-      interval: 15s
-      timeout: 5s
-      retries: 18
-      start_period: 60s
-    networks: [unicnet]
+      init: {condition: service_completed_successfully}
+      router: {condition: service_healthy}
+      syslog: {condition: service_healthy}
 
   frontend:
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:${UNICNETFRONT_IMAGE_TAG:?Set UNICNETFRONT_IMAGE_TAG in .env}
-    restart: unless-stopped
+    <<: *app
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:${UNICNET_IMAGE_TAG:-rc-init-test}
+    command: ["UnicNet.Front.dll"]
     environment:
-      <<: *vault-client-environment
       api.vault.name: UNFrontV2
-      UniCommLicenseData: ${UNIC_LICENSE_DATA:?Set UNIC_LICENSE_DATA in .env}
-      Api_License_Url: ${API_LICENSE_URL:-https://service.example.org/}
-    ports:
-      - "8080:8080"
+    volumes:
+      - frontend-config:/run/unicnet:ro
+      - ./entrypoints/app.sh:/entrypoints/app.sh:ro
+      - frontend-keyring:/app/keyring
+      - type: bind
+        source: ./frontend-settings.json
+        target: /app/front.adm.cfg
+        bind: {create_host_path: false}
+    ports: ["8080:8080"]
     depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
-      interval: 15s
-      timeout: 5s
-      retries: 18
-      start_period: 60s
-    networks: [unicnet]
+      backend: {condition: service_healthy}
 
-networks:
-  unicnet:
-    name: unicnet_network
+  verify:
+    <<: *job
+    command: ["verify"]
+    depends_on:
+      frontend: {condition: service_healthy}
 
 volumes:
-  postgres-data:
-
+  init-state:
+  pg-config:
+  keycloak-config:
+  vault-config:
+  logger-config:
+  router-config:
+  syslog-config:
+  backend-config:
+  frontend-config:
+  frontend-keyring:
+  keycloak-import:

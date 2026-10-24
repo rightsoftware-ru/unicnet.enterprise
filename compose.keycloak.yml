@@ -1,0 +1,24 @@
+services:
+  prepare:
+    environment:
+      UNICNET_KC_MODE: managed
+  keycloak:
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/keycloak:${KEYCLOAK_IMAGE_TAG:-26.7.0}
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/entrypoints/keycloak.sh"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - keycloak-config:/run/unicnet:ro
+      - keycloak-import:/opt/keycloak/data/import:ro
+      - ./entrypoints/keycloak.sh:/entrypoints/keycloak.sh:ro
+    ports: ["8095:8080"]
+    depends_on:
+      database: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/unicnet-master-ready && kill -0 $$(cat /tmp/unicnet-master-ready)"]
+      interval: 5s
+      timeout: 5s
+      retries: 48
+  init:
+    depends_on:
+      keycloak: {condition: service_healthy}

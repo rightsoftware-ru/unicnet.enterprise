@@ -1,0 +1,22 @@
+{
+  "postgres": {
+    "mode": "external",
+    "host": "db.example.internal",
+    "port": 5432,
+    "database": "unicnet",
+    "username": "unicnet_owner",
+    "password": "SET_DATABASE_PASSWORD",
+    "sslmode": "verify-full"
+  },
+  "keycloak": {
+    "mode": "external",
+    "url": "https://sso.example.internal",
+    "realm_mode": "existing",
+    "realm": "unicnet",
+    "client": "FrontUiV2",
+    "admin_username": "unicnet-service",
+    "admin_password": "SET_SERVICE_PASSWORD",
+    "login_username": "existing-un-admin",
+    "login_password": "SET_UN_ADMIN_PASSWORD"
+  }
+}
