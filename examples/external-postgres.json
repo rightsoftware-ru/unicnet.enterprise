@@ -1,0 +1,14 @@
+{
+  "postgres": {
+    "mode": "external",
+    "host": "db.example.internal",
+    "port": 5432,
+    "database": "unicnet",
+    "username": "unicnet_owner",
+    "password": "SET_DATABASE_PASSWORD",
+    "sslmode": "verify-full"
+  },
+  "keycloak": {
+    "mode": "managed"
+  }
+}

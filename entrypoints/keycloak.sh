@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 set -a
+# shellcheck source=/dev/null
 source /run/unicnet/service.env
 set +a
 rm -f /tmp/unicnet-master-ready
@@ -9,7 +10,7 @@ server=$!
 trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' TERM INT
 cfg=$(mktemp -d)
 configured=false
-for attempt in $(seq 1 90); do
+for _ in $(seq 1 90); do
     if ! kill -0 "$server" 2>/dev/null; then
         break
     fi
