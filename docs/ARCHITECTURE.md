@@ -69,4 +69,4 @@ flowchart TD
 3. Внешний Keycloak: `compose.yml` + `compose.pg.yml`.
 4. Обе службы внешние: только `compose.yml`.
 
-Готовые настройки выбора описаны в [основной инструкции](../README.md#variants). Docker Compose сам создаёт внутреннюю сеть. Подключения к существующим службам задаются в infrastructure.json.
+Готовые настройки выбора описаны в [основной инструкции](../INITIAL_DEPLOYMENT.md#variants). Docker Compose сам создаёт внутреннюю сеть. Подключения к существующим службам задаются в infrastructure.json.
