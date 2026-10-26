@@ -1,7 +1,7 @@
 name: unicnet-docker-test
 
 x-job: &job
-  image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetinit:${UNICNET_INIT_TAG:-rc-init-test}
+  image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetinit:${UNICNET_INIT_TAG:-rc-init-test-20261026}
   pull_policy: missing
   restart: "no"
   volumes:
@@ -26,7 +26,7 @@ services:
     environment:
       UNICNET_HOST: ${UNICNET_HOST:?Copy .env.example to .env}
       UNICNET_CIDR: ${UNICNET_CIDR:?Set UNICNET_CIDR}
-      UNICNET_IMAGE_TAG: ${UNICNET_IMAGE_TAG:-rc-init-test}
+      UNICNET_IMAGE_TAG: ${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
       UNICNET_PG_MODE: external
       UNICNET_KC_MODE: external
     volumes:
@@ -70,7 +70,7 @@ services:
 
   vault:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicvault:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["Unic.Vault.dll"]
     volumes:
       - vault-config:/run/unicnet:ro
@@ -86,7 +86,7 @@ services:
 
   logger:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/uniclogger:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["Unic.Logger.dll"]
     volumes: ["logger-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
     ports: ["8082:8080"]
@@ -95,7 +95,7 @@ services:
 
   router:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetrouter:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["UnicNet.Router.dll"]
     volumes: ["router-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
     ports: ["30115:8080"]
@@ -105,7 +105,7 @@ services:
 
   syslog:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetsyslog:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["UnicNet.SysLog.dll"]
     volumes: ["syslog-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
     ports: ["8001:8080", "514:514/udp", "601:601", "601:601/udp", "6514:6514"]
@@ -115,7 +115,7 @@ services:
 
   backend:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetbackend:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["UnicNet.Backend.dll"]
     volumes: ["backend-config:/run/unicnet:ro", "./entrypoints/app.sh:/entrypoints/app.sh:ro"]
     ports: ["30111:8080"]
@@ -126,7 +126,7 @@ services:
 
   frontend:
     <<: *app
-    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:${UNICNET_IMAGE_TAG:-rc-init-test}
+    image: cr.yandex/crpi5ll6mqcn793fvu9i/unic/unicnetfront:${UNICNET_IMAGE_TAG:-rc-init-test-20261026}
     command: ["UnicNet.Front.dll"]
     environment:
       api.vault.name: UNFrontV2
